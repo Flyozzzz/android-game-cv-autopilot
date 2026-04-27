@@ -1,0 +1,120 @@
+{
+  "name": "tutorial_path",
+  "created_at": "2026-04-27T21:09:51+0300",
+  "actions": [
+    {
+      "action": "tap",
+      "x": 214,
+      "y": 2243,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 840,
+      "x2": 540,
+      "y2": 1800,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 1800,
+      "x2": 540,
+      "y2": 840,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 1800,
+      "x2": 540,
+      "y2": 840,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 1800,
+      "x2": 540,
+      "y2": 840,
+      "duration": 320,
+      "pause": 0.45
+    },
+    {
+      "action": "swipe",
+      "x1": 540,
+      "y1": 1800,
+      "x2": 540,
+      "y2": 840,
+      "duration": 320,
+      "pause": 0.45
+    }
+  ]
+}
