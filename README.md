@@ -12,9 +12,6 @@
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
 Docker ready · MCP ready · Tests `163 passed` · Deterministic coverage `100%` ·
 Purchases `preview only`
-## License
-
-This project is source-available for non-commercial use only. Commercial use is prohibited without prior written permission. See [LICENSE](./LICENSE).
 
 Android Game CV Autopilot is a local Android automation lab for installing
 games, passing safe onboarding, running gameplay helpers, navigating to purchase
@@ -31,6 +28,10 @@ The dashboard UI supports English and Russian.
 Languages: [English](#english) | [Русский](#русская-версия)
 
 ## English
+
+## License
+
+This project is source-available for non-commercial use only. Commercial use is prohibited without prior written permission. See [LICENSE](./LICENSE).
 
 ## Table Of Contents
 
