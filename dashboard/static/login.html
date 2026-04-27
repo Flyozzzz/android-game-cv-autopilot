@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Autopilot Dashboard Login</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body class="login-body">
+    <main class="login-shell">
+      <section class="login-hero">
+        <div class="login-brand">
+          <div class="brand-mark">AG</div>
+          <div>
+            <strong>Android Game CV Autopilot</strong>
+            <span data-login-i18n="brandSub">Secure local dashboard</span>
+          </div>
+        </div>
+        <div class="login-lang">
+          <button id="loginLangEn" class="ghost small" type="button">EN</button>
+          <button id="loginLangRu" class="ghost small" type="button">RU</button>
+        </div>
+        <h1 data-login-i18n="heroTitle">Control the automation lab</h1>
+        <p data-login-i18n="heroBody">
+          Sign in to manage Android devices, CV prompts, game profiles, MCP
+          tools, recordings, presets, and safe run checks.
+        </p>
+        <div class="login-proof">
+          <span data-login-i18n="proofCv">CV constructor</span>
+          <span data-login-i18n="proofMcp">MCP ready</span>
+          <span data-login-i18n="proofSafety">Preview-only purchases</span>
+        </div>
+      </section>
+
+      <section class="login-card" aria-label="Dashboard login">
+        <div>
+          <p class="eyebrow" data-login-i18n="eyebrow">Dashboard access</p>
+          <h2 data-login-i18n="signIn">Sign in</h2>
+          <p data-login-i18n="hint">Default local credentials are admin / admin. Change them in config or environment.</p>
+        </div>
+        <form id="loginForm" class="login-form">
+          <label>
+            <span data-login-i18n="username">Username</span>
+            <input id="loginUsername" name="username" autocomplete="username" value="admin" />
+          </label>
+          <label>
+            <span data-login-i18n="password">Password</span>
+            <input id="loginPassword" name="password" type="password" autocomplete="current-password" value="admin" />
+          </label>
+          <button class="primary login-submit" type="submit" data-login-i18n="submit">Open Dashboard</button>
+          <div id="loginError" class="login-error" role="alert"></div>
+        </form>
+      </section>
+    </main>
+
+    <script>
+      const form = document.getElementById("loginForm");
+      const errorBox = document.getElementById("loginError");
+      const copy = {
+        en: {
+          brandSub: "Secure local dashboard",
+          heroTitle: "Control the automation lab",
+          heroBody: "Sign in to manage Android devices, CV prompts, game profiles, MCP tools, recordings, presets, and safe run checks.",
+          proofCv: "CV constructor",
+          proofMcp: "MCP ready",
+          proofSafety: "Preview-only purchases",
+          eyebrow: "Dashboard access",
+          signIn: "Sign in",
+          hint: "Default local credentials are admin / admin. Change them in config or environment.",
+          username: "Username",
+          password: "Password",
+          submit: "Open Dashboard",
+          failed: "Login failed"
+        },
+        ru: {
+          brandSub: "Защищенный локальный dashboard",
+          heroTitle: "Центр автоматизации",
+          heroBody: "Войди, чтобы управлять Android-устройствами, CV-промптами, игровыми профилями, MCP tools, записями, пресетами и проверками.",
+          proofCv: "CV конструктор",
+          proofMcp: "MCP готов",
+          proofSafety: "Покупки только до preview",
+          eyebrow: "Доступ к dashboard",
+          signIn: "Вход",
+          hint: "Локальные учетные данные по умолчанию: admin / admin. Измени их в config или environment.",
+          username: "Логин",
+          password: "Пароль",
+          submit: "Открыть dashboard",
+          failed: "Ошибка входа"
+        }
+      };
+      function applyLoginLanguage(lang) {
+        const selected = lang === "ru" ? "ru" : "en";
+        localStorage.setItem("dashboard.language", selected);
+        document.documentElement.lang = selected;
+        document.querySelectorAll("[data-login-i18n]").forEach((node) => {
+          node.textContent = copy[selected][node.dataset.loginI18n];
+        });
+        document.getElementById("loginLangEn").classList.toggle("active", selected === "en");
+        document.getElementById("loginLangRu").classList.toggle("active", selected === "ru");
+      }
+      document.getElementById("loginLangEn").addEventListener("click", () => applyLoginLanguage("en"));
+      document.getElementById("loginLangRu").addEventListener("click", () => applyLoginLanguage("ru"));
+      applyLoginLanguage(localStorage.getItem("dashboard.language") || "en");
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        errorBox.textContent = "";
+        const response = await fetch("/api/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            username: document.getElementById("loginUsername").value,
+            password: document.getElementById("loginPassword").value,
+          }),
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || data.error) {
+          errorBox.textContent = data.error || copy[document.documentElement.lang].failed;
+          return;
+        }
+        window.location.href = "/";
+      });
+    </script>
+  </body>
+</html>

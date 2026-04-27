@@ -1,0 +1,20 @@
+{
+  "title": "Full Manual / Record Template",
+  "description": "Для записи нового пути: все ключевые этапы manual, экран телефона виден в dashboard, затем можно сохранить recording.",
+  "farm": "local",
+  "localDevice": "auto",
+  "appiumPort": "4723",
+  "gameProfile": "talking-tom",
+  "gameName": "My Talking Tom",
+  "gamePackage": "com.outfit7.mytalkingtomfree",
+  "playerPrefix": "Player",
+  "installMethod": "manual",
+  "tutorialMethod": "manual",
+  "gameplayMethod": "manual",
+  "purchaseMethod": "manual",
+  "purchaseMode": "preview",
+  "googlePhoneMode": "manual",
+  "cvFallbackManual": true,
+  "manualTimeout": "1200",
+  "stages": ["install", "tutorial", "gameplay", "purchase_preview"]
+}

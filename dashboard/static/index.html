@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Android Game CV Autopilot</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="rail">
+        <div class="brand">
+          <div class="brand-mark">AG</div>
+          <div>
+            <div class="brand-title" data-i18n="app.brandTitle">Autopilot</div>
+            <div class="brand-subtitle" data-i18n="app.brandSubtitle">Android CV ops</div>
+          </div>
+        </div>
+        <nav class="nav">
+          <a href="#command" class="active" data-i18n="nav.command">Command</a>
+          <a href="#mcp" data-i18n="nav.mcp">MCP</a>
+          <a href="#manual" data-i18n="nav.manual">Manual</a>
+          <a href="#cv-bench" data-i18n="nav.cvbench">CV Bench</a>
+          <a href="#project" data-i18n="nav.project">Project</a>
+          <a href="#profiles" data-i18n="nav.profiles">Profiles</a>
+          <a href="#guide" data-i18n="nav.guide">Guide</a>
+          <a href="#reports" data-i18n="nav.reports">Reports</a>
+          <a href="#logs" data-i18n="nav.logs">Logs</a>
+        </nav>
+        <div class="rail-note">
+          <span class="dot success"></span>
+          <span data-i18n="app.railNote">Purchases locked to preview</span>
+        </div>
+      </aside>
+
+      <main class="workspace">
+        <header class="topbar">
+          <div>
+            <div class="eyebrow" data-i18n="top.eyebrow">Local automation constructor</div>
+            <h1 data-i18n="top.title">Android Game CV Autopilot</h1>
+          </div>
+          <div class="top-actions">
+            <div class="language-switch" aria-label="Language">
+              <span data-i18n="top.language">Language</span>
+              <button id="langEn" class="ghost small" type="button">EN</button>
+              <button id="langRu" class="ghost small" type="button">RU</button>
+            </div>
+            <label class="help-toggle"><input id="helpMode" type="checkbox" checked /> <span data-i18n="top.help">Show explanations</span></label>
+            <select id="deviceSelect" aria-label="ADB device"></select>
+            <button id="useDeviceBtn" class="ghost" data-i18n="button.useDevice">Use For Run</button>
+            <button id="refreshBtn" class="ghost" data-i18n="button.refresh">Refresh</button>
+            <button id="checkBtn" class="ghost" data-i18n="button.runChecks">Run Checks</button>
+            <button id="logoutBtn" class="ghost" data-i18n="button.logout">Log out</button>
+          </div>
+        </header>
+
+        <section id="command" class="grid command-grid">
+          <article class="panel span-7">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="command.title">Run Configuration</h2>
+                <p data-i18n="command.body">Assemble a full automation route: game profile, device farm, stage methods, CV prompts, recordings, and safety settings.</p>
+              </div>
+              <span id="runStatePill" class="pill neutral">Idle</span>
+            </div>
+
+            <div class="preset-row">
+              <label>
+                <span data-i18n="command.readyPreset">Ready preset</span>
+                <select id="readyPreset"></select>
+              </label>
+              <button id="loadPresetBtn" class="secondary" data-i18n="button.loadPreset">Load Preset</button>
+              <div id="presetDescription" class="preset-description"></div>
+            </div>
+
+            <details class="advanced">
+              <summary data-i18n="command.presetBuilder.title">Preset builder</summary>
+              <p class="hint" data-i18n="command.presetBuilder.body">Save the current form as a reusable named preset. Secrets are stripped before writing JSON.</p>
+              <div class="form-grid">
+                <label><span data-i18n="command.presetName">Preset file name</span><input id="presetName" data-i18n-placeholder="placeholder.presetName" placeholder="my_new_game_route" /></label>
+                <label><span data-i18n="command.presetTitle">Preset title</span><input id="presetTitle" data-i18n-placeholder="placeholder.presetTitle" placeholder="My New Game: CV Route" /></label>
+              </div>
+              <label class="textarea-label"><span data-i18n="command.presetDescription">Preset description</span><textarea id="presetDescriptionInput" rows="2"></textarea></label>
+              <div class="action-row left">
+                <button id="saveNamedPresetBtn" class="primary" data-i18n="button.saveNamedPreset">Save Named Preset</button>
+                <button id="deletePresetBtn" class="danger" data-i18n="button.deletePreset">Delete Selected Preset</button>
+              </div>
+            </details>
+
+            <div class="form-grid">
+              <label>
+                <span data-i18n="command.gameProfile">Game profile</span>
+                <select id="gameProfile"></select>
+              </label>
+              <label>
+                <span data-i18n="command.deviceFarm">Device farm</span>
+                <select id="farm"></select>
+              </label>
+              <label>
+                <span data-i18n="command.gameName">Game name</span>
+                <input id="gameName" />
+              </label>
+              <label>
+                <span data-i18n="command.package">Package</span>
+                <input id="gamePackage" />
+              </label>
+              <label>
+                <span data-i18n="command.localDevice">Local device</span>
+                <input id="localDevice" placeholder="auto or serial" />
+              </label>
+              <label>
+                <span data-i18n="command.appiumPort">Appium port</span>
+                <input id="appiumPort" type="number" min="1" />
+              </label>
+            </div>
+
+            <div class="method-row">
+              <label>
+                <span data-i18n="command.googleRegistration">Google registration</span>
+                <select id="googleRegisterVia"></select>
+              </label>
+              <label>
+                <span data-i18n="command.install">Install</span>
+                <select id="installMethod"></select>
+              </label>
+              <label>
+                <span data-i18n="command.tutorial">Tutorial</span>
+                <select id="tutorialMethod"></select>
+              </label>
+              <label>
+                <span data-i18n="command.gameplay">Gameplay</span>
+                <select id="gameplayMethod"></select>
+              </label>
+              <label>
+                <span data-i18n="command.purchasePreview">Purchase preview</span>
+                <select id="purchaseMethod"></select>
+              </label>
+            </div>
+
+            <div class="stage-strip" id="stages"></div>
+
+            <details class="advanced">
+              <summary data-i18n="advanced.title">Advanced settings</summary>
+              <div class="form-grid">
+                <label>
+                  <span data-i18n="advanced.playerPrefix">Player prefix</span>
+                  <input id="playerPrefix" />
+                </label>
+                <label>
+                  <span data-i18n="advanced.apkPath">APK fallback path</span>
+                  <input id="apkPath" data-i18n-placeholder="placeholder.apkPath" placeholder="/path/to/game.apk" />
+                </label>
+                <label>
+                  <span data-i18n="advanced.googleEmail">Google email</span>
+                  <input id="googleEmail" data-i18n-placeholder="placeholder.googleEmail" placeholder="optional existing account" />
+                </label>
+                <label>
+                  <span data-i18n="advanced.fastSeconds">Fast gameplay seconds</span>
+                  <input id="fastGameplaySeconds" type="number" step="1" />
+                </label>
+                <label>
+                  <span data-i18n="advanced.match3Bounds">Match-3 bounds</span>
+                  <input id="match3Bounds" data-i18n-placeholder="placeholder.match3Bounds" placeholder="x1,y1,x2,y2" />
+                </label>
+                <label>
+                  <span data-i18n="advanced.manualTimeout">Manual timeout seconds</span>
+                  <input id="manualTimeout" type="number" step="30" />
+                </label>
+              </div>
+              <div class="toggle-row">
+                <label><input id="testRun" type="checkbox" /> <span data-i18n="advanced.savedLogin">Use saved Google login</span></label>
+                <label><input id="stopAtPhone" type="checkbox" /> <span data-i18n="advanced.stopAtPhone">Stop at phone verification</span></label>
+                <label><input id="leavePurchaseOpen" type="checkbox" /> <span data-i18n="advanced.leavePurchase">Leave purchase preview open</span></label>
+                <label><input id="cvFallbackManual" type="checkbox" /> <span data-i18n="advanced.cvFallback">CV fail -> manual checkpoint</span></label>
+              </div>
+            </details>
+
+            <details class="advanced">
+              <summary data-i18n="keys.title">Keys and provider credentials</summary>
+              <p class="hint" data-i18n="keys.body">These fields are passed to the next run only. Save Preset does not store secret values.</p>
+              <div class="form-grid">
+                <label><span data-i18n="keys.openrouter">OpenRouter / Vision key</span><input id="openrouterKey" type="password" autocomplete="off" /></label>
+                <label><span data-i18n="keys.genymotion">Genymotion token</span><input id="genymotionToken" type="password" autocomplete="off" /></label>
+                <label><span data-i18n="keys.browserstackUser">BrowserStack username</span><input id="browserstackUsername" autocomplete="off" /></label>
+                <label><span data-i18n="keys.browserstackKey">BrowserStack access key</span><input id="browserstackAccessKey" type="password" autocomplete="off" /></label>
+                <label><span data-i18n="keys.lambdatestUser">LambdaTest username</span><input id="lambdatestUsername" autocomplete="off" /></label>
+                <label><span data-i18n="keys.lambdatestKey">LambdaTest access key</span><input id="lambdatestAccessKey" type="password" autocomplete="off" /></label>
+                <label><span data-i18n="keys.fivesim">5sim API key</span><input id="fivesimApiKey" type="password" autocomplete="off" /></label>
+                <label><span data-i18n="keys.phone">Manual Google phone</span><input id="googlePhoneNumber" data-i18n-placeholder="placeholder.phone" placeholder="+15551234567" autocomplete="off" /></label>
+                <label><span data-i18n="keys.sms">Manual SMS code</span><input id="googleSmsCode" autocomplete="off" /></label>
+                <label><span data-i18n="keys.smsFile">SMS code file</span><input id="googleSmsCodeFile" data-i18n-placeholder="placeholder.smsFile" placeholder="/tmp/google_sms_code.txt" /></label>
+              </div>
+            </details>
+
+            <details class="advanced">
+              <summary data-i18n="cv.title">CV editor</summary>
+              <p class="hint" data-i18n="cv.body">Base prompts support placeholders: {game_name}, {package_name}, {profile_hints}, {strategy_hint}, {operator_instructions}.</p>
+              <div class="form-grid">
+                <label><span data-i18n="cv.models">CV models</span><input id="cvModels" /></label>
+                <label><span data-i18n="cv.scale">Coordinate scale</span><input id="cvCoordinateScale" /></label>
+                <label><span data-i18n="cv.tutorialSteps">Tutorial max steps</span><input id="cvTutorialMaxSteps" type="number" /></label>
+                <label><span data-i18n="cv.purchaseSteps">Purchase max steps</span><input id="cvPurchaseMaxSteps" type="number" /></label>
+              </div>
+              <label class="textarea-label"><span data-i18n="cv.installPrompt">Install base prompt</span><textarea id="cvInstallBasePrompt" rows="7"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.tutorialPrompt">Tutorial base prompt</span><textarea id="cvTutorialBasePrompt" rows="8"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.purchasePrompt">Purchase preview base prompt</span><textarea id="cvPurchaseBasePrompt" rows="8"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.installInstructions">Install CV instructions</span><textarea id="cvInstallInstructions" rows="3"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.tutorialInstructions">Tutorial CV instructions</span><textarea id="cvTutorialInstructions" rows="4"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.purchaseInstructions">Purchase CV instructions</span><textarea id="cvPurchaseInstructions" rows="4"></textarea></label>
+              <label class="textarea-label"><span data-i18n="cv.blockers">Extra blocker words, comma separated</span><textarea id="cvExtraBlockers" rows="2"></textarea></label>
+            </details>
+
+            <details class="advanced">
+              <summary data-i18n="recorded.title">Recorded action paths for automation</summary>
+              <div class="form-grid">
+                <label><span data-i18n="recorded.install">Install recording</span><input id="recordedInstallPath" data-i18n-placeholder="placeholder.recordingPath" placeholder="dashboard/recordings/install.json" /></label>
+                <label><span data-i18n="recorded.tutorial">Tutorial recording</span><input id="recordedTutorialPath" data-i18n-placeholder="placeholder.recordingPath" placeholder="dashboard/recordings/tutorial.json" /></label>
+                <label><span data-i18n="recorded.gameplay">Gameplay recording</span><input id="recordedGameplayPath" data-i18n-placeholder="placeholder.recordingPath" placeholder="dashboard/recordings/gameplay.json" /></label>
+              </div>
+            </details>
+
+            <div class="action-row">
+              <button id="savePresetBtn" class="secondary" data-i18n="button.savePreset">Save Preset</button>
+              <button id="startRunBtn" class="primary" data-i18n="button.startRun">Start Safe Run</button>
+              <button id="stopRunBtn" class="danger" data-i18n="button.stopRun">Stop Run</button>
+            </div>
+          </article>
+
+          <article class="panel span-5">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="health.title">Device Health</h2>
+                <p data-i18n="health.body">ADB, selected device, tests, reports, and vision status.</p>
+              </div>
+            </div>
+            <div id="deviceCards" class="device-list"></div>
+            <div class="metric-row">
+              <div class="metric">
+                <span data-i18n="health.tests">Tests</span>
+                <strong id="testStatus">Not run</strong>
+              </div>
+              <div class="metric">
+                <span data-i18n="health.report">Last report</span>
+                <strong id="reportStatus">None</strong>
+              </div>
+              <div class="metric">
+                <span data-i18n="health.vision">Vision key</span>
+                <strong id="visionStatus">Unknown</strong>
+              </div>
+            </div>
+            <div class="safety-box">
+              <h3 data-i18n="safety.title">Safety Guard</h3>
+              <p data-i18n="safety.body">Dashboard and MCP keep real payment confirmations blocked. Runs can navigate to a preview screen, then stop.</p>
+            </div>
+          </article>
+        </section>
+
+        <section id="mcp" class="grid">
+          <article class="panel span-6">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="mcp.title">MCP Server</h2>
+                <p data-i18n="mcp.body">Connect another AI client to this dashboard over stdio.</p>
+              </div>
+            </div>
+            <pre class="logbox">python3 -m dashboard.mcp_server</pre>
+            <p class="hint" data-i18n="mcp.hint">The MCP bridge uses this dashboard HTTP API, can autostart the web dashboard, and keeps the same safety rules.</p>
+            <h3 class="section-subhead" data-i18n="mcp.clientConfig">Client config</h3>
+            <pre class="logbox">{
+  "mcpServers": {
+    "android-autopilot-dashboard": {
+      "command": "python3",
+      "args": ["-m", "dashboard.mcp_server"],
+      "cwd": "/Users/flyoz/android",
+      "env": {
+        "DASHBOARD_URL": "http://127.0.0.1:8765",
+        "MCP_AUTOSTART_DASHBOARD": "1"
+      }
+    }
+  }
+}</pre>
+          </article>
+          <article class="panel span-6">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="mcp.toolsTitle">MCP Tools</h2>
+                <p data-i18n="mcp.toolsBody">Remote agents can inspect, edit, test, run, build profiles and presets, use CV, and control the phone.</p>
+              </div>
+            </div>
+            <p class="hint" data-i18n="mcp.cvTools">CV planning and safe CV run tools are exposed as cv_plan_next_action and cv_run_goal.</p>
+            <div class="tool-list">
+              <span>dashboard_state</span>
+              <span>start_safe_run</span>
+              <span>stop_run</span>
+              <span>run_checks</span>
+              <span>tail_run_log</span>
+              <span>list_project_files</span>
+              <span>read_project_file</span>
+              <span>write_project_file</span>
+              <span>list_recordings</span>
+              <span>read_recording</span>
+              <span>save_recording</span>
+              <span>replay_recording</span>
+              <span>adb_devices</span>
+              <span>device_screenshot</span>
+              <span>device_tap</span>
+              <span>device_swipe</span>
+              <span>device_key</span>
+              <span>device_text</span>
+              <span>cv_plan_next_action</span>
+              <span>cv_run_goal</span>
+              <span>list_game_profiles</span>
+              <span>save_game_profile</span>
+              <span>delete_game_profile</span>
+              <span>list_presets</span>
+              <span>save_preset</span>
+              <span>delete_preset</span>
+              <span>manual_continue</span>
+            </div>
+          </article>
+        </section>
+
+        <section id="manual" class="grid manual-grid">
+          <article class="panel span-8">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="manual.title">Manual Phone Control</h2>
+                <p data-i18n="manual.body">Refresh the live screenshot, then click directly on the phone image.</p>
+              </div>
+              <div class="inline-actions">
+                <button id="shotBtn" class="ghost" data-i18n="button.refreshScreen">Refresh Screen</button>
+                <button id="continueBtn" class="primary small" data-i18n="button.continueAutomation">Continue Automation</button>
+              </div>
+            </div>
+            <div class="phone-frame">
+              <img id="phoneShot" alt="Android device screen" />
+              <div id="shotEmpty" class="shot-empty" data-i18n="manual.noScreenshot">No screenshot yet</div>
+            </div>
+          </article>
+
+          <article class="panel span-4">
+            <h2 data-i18n="manual.actionsTitle">Manual Actions</h2>
+            <div class="manual-buttons">
+              <button data-key="back">Back</button>
+              <button data-key="home">Home</button>
+              <button data-key="enter">Enter</button>
+              <button id="swipeUpBtn" data-i18n="button.swipeUp">Swipe Up</button>
+              <button id="swipeDownBtn" data-i18n="button.swipeDown">Swipe Down</button>
+              <button id="swipeLeftBtn" data-i18n="button.swipeLeft">Swipe Left</button>
+              <button id="swipeRightBtn" data-i18n="button.swipeRight">Swipe Right</button>
+            </div>
+            <label>
+              <span data-i18n="manual.typeText">Type text</span>
+              <div class="input-action">
+                <input id="manualText" data-i18n-placeholder="placeholder.manualText" placeholder="text to type" />
+                <button id="typeBtn" class="secondary" data-i18n="button.send">Send</button>
+              </div>
+            </label>
+            <div class="recording-box">
+              <h3 data-i18n="recording.title">Action Recorder</h3>
+              <div class="manual-buttons">
+                <button id="recordBtn" data-i18n="button.startRecording">Start Recording</button>
+                <button id="clearRecordBtn" data-i18n="button.clear">Clear</button>
+              </div>
+              <label><span data-i18n="recording.name">Recording name</span><input id="recordingName" value="tutorial_path" /></label>
+              <div class="input-action">
+                <select id="recordingSelect"></select>
+                <button id="replayBtn" class="secondary" data-i18n="button.replay">Replay</button>
+              </div>
+              <div class="manual-buttons compact">
+                <button id="loadRecordingBtn" data-i18n="button.loadJson">Load JSON</button>
+                <button id="useInstallRecordingBtn" data-i18n="button.useInstall">Use Install</button>
+                <button id="useTutorialRecordingBtn" data-i18n="button.useTutorial">Use Tutorial</button>
+                <button id="useGameplayRecordingBtn" data-i18n="button.useGameplay">Use Gameplay</button>
+              </div>
+              <div class="input-action">
+                <button id="saveRecordingBtn" class="primary" data-i18n="button.saveRecording">Save Recording</button>
+                <span id="recordCount" class="record-count">0 actions</span>
+              </div>
+              <textarea id="recordingPreview" class="code-editor mini" rows="8" readonly data-i18n-placeholder="recording.preview" placeholder="Selected recording JSON appears here."></textarea>
+            </div>
+            <div id="manualStatus" class="status-box" data-i18n="manual.statusReady">Manual controls ready.</div>
+          </article>
+
+          <article id="cv-bench" class="panel span-12">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="cvtest.title">CV Test Bench</h2>
+                <p data-i18n="cvtest.body">Write a goal prompt, ask CV for the next action, or let it run a short guarded goal on the selected device.</p>
+              </div>
+              <span class="pill neutral" id="cvTestStatus" data-i18n="cvtest.statusReady">Ready</span>
+            </div>
+            <div class="form-grid">
+              <label>
+                <span data-i18n="cvtest.goal">Goal prompt</span>
+                <textarea id="cvTestGoal" rows="4" data-i18n-placeholder="placeholder.cvTestGoal" placeholder="Open the game lobby and stop when the shop button is visible."></textarea>
+              </label>
+              <div class="form-grid stacked-fields">
+                <label>
+                  <span data-i18n="cvtest.maxSteps">Max CV steps</span>
+                  <input id="cvTestMaxSteps" type="number" min="1" max="30" value="5" />
+                </label>
+                <label>
+                  <span data-i18n="cvtest.values">Optional values JSON</span>
+                  <textarea id="cvTestValues" rows="3" placeholder='{"player_name":"Tester"}'></textarea>
+                </label>
+              </div>
+            </div>
+            <div class="action-row left">
+              <button id="cvPlanBtn" class="secondary" data-i18n="button.cvPlan">Plan One CV Step</button>
+              <button id="cvRunGoalBtn" class="primary" data-i18n="button.cvRunGoal">Run CV Goal</button>
+            </div>
+            <pre id="cvTestOutput" class="logbox" data-i18n="cvtest.outputPlaceholder">CV result JSON appears here.</pre>
+          </article>
+        </section>
+
+        <section id="project" class="grid">
+          <article class="panel span-4">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="project.title">Dashboard Data Files</h2>
+                <p data-i18n="project.body">Edit safe dashboard data files: presets, profiles, recordings, and prompt notes. Server code is locked here.</p>
+              </div>
+              <button id="refreshFilesBtn" class="ghost" data-i18n="button.refreshFiles">Refresh Files</button>
+            </div>
+            <label>
+              <span data-i18n="project.file">File</span>
+              <select id="projectFileSelect" size="16"></select>
+            </label>
+            <label class="textarea-label">
+              <span data-i18n="project.path">Path</span>
+              <input id="projectFilePath" data-i18n-placeholder="placeholder.projectPath" placeholder="dashboard/presets/latest.json" />
+            </label>
+            <div class="action-row left">
+              <button id="loadFileBtn" class="secondary" data-i18n="button.loadFile">Load File</button>
+              <button id="saveFileBtn" class="primary" data-i18n="button.saveFile">Save File</button>
+            </div>
+            <p class="hint" data-i18n="project.hint">Only dashboard/presets, dashboard/profiles, dashboard/recordings, and dashboard/prompts are editable. Python, JS, server files, logs, reports, caches, and secrets are blocked.</p>
+          </article>
+          <article class="panel span-8">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="project.editorTitle">Editor</h2>
+                <p id="projectEditorStatus" data-i18n="project.editorBody">Choose a file, edit it, then run checks.</p>
+              </div>
+            </div>
+            <textarea id="projectEditor" class="code-editor" spellcheck="false" data-i18n-placeholder="placeholder.editor" placeholder="File content loads here."></textarea>
+          </article>
+        </section>
+
+        <section id="profiles" class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 data-i18n="profiles.title">Game Profiles</h2>
+              <p data-i18n="profiles.body">Create reusable game routing hints for CV, recorded paths, and gameplay strategy.</p>
+            </div>
+          </div>
+          <div class="profile-builder">
+            <h3 data-i18n="profiles.builder.title">Profile builder</h3>
+            <div class="form-grid">
+              <label><span data-i18n="profiles.id">Profile id</span><input id="profileId" data-i18n-placeholder="placeholder.profileId" placeholder="my-new-game" /></label>
+              <label><span data-i18n="profiles.name">Name</span><input id="profileName" data-i18n-placeholder="placeholder.profileName" placeholder="My New Game" /></label>
+              <label><span data-i18n="profiles.package">Package</span><input id="profilePackage" data-i18n-placeholder="placeholder.profilePackage" placeholder="com.example.game" /></label>
+              <label><span data-i18n="profiles.installQuery">Install query</span><input id="profileInstallQuery" data-i18n-placeholder="placeholder.installQuery" placeholder="Play Store search text" /></label>
+              <label><span data-i18n="profiles.playerPrefix">Player prefix</span><input id="profilePlayerPrefix" value="Player" /></label>
+              <label>
+                <span data-i18n="profiles.strategy">Gameplay strategy</span>
+                <select id="profileGameplayStrategy">
+                  <option value="none">none</option>
+                  <option value="fast_runner">fast_runner</option>
+                  <option value="match3_solver">match3_solver</option>
+                  <option value="solver_required">solver_required</option>
+                </select>
+              </label>
+              <label><span data-i18n="profiles.tutorialSteps">Tutorial max steps</span><input id="profileMaxTutorialSteps" type="number" min="0" /></label>
+              <label><span data-i18n="profiles.purchaseSteps">Purchase max steps</span><input id="profileMaxPurchaseSteps" type="number" min="0" /></label>
+            </div>
+            <div class="toggle-row">
+              <label><input id="profileProven" type="checkbox" /> <span data-i18n="profiles.validated">Validated profile</span></label>
+            </div>
+            <label class="textarea-label"><span data-i18n="profiles.aliases">Aliases, comma or line separated</span><textarea id="profileAliases" rows="2"></textarea></label>
+            <label class="textarea-label"><span data-i18n="profiles.tutorialHints">Tutorial hints</span><textarea id="profileTutorialHints" rows="3"></textarea></label>
+            <label class="textarea-label"><span data-i18n="profiles.purchaseHints">Purchase preview hints</span><textarea id="profilePurchaseHints" rows="3"></textarea></label>
+            <label class="textarea-label"><span data-i18n="profiles.blockers">Blocker words</span><textarea id="profileBlockerWords" rows="2"></textarea></label>
+            <label class="textarea-label"><span data-i18n="profiles.notes">Notes</span><textarea id="profileNotes" rows="2"></textarea></label>
+            <div class="action-row left">
+              <button id="newProfileBtn" class="secondary" data-i18n="button.newProfile">New Profile</button>
+              <button id="saveProfileBtn" class="primary" data-i18n="button.saveProfile">Save Profile</button>
+              <button id="applyProfileBtn" class="secondary" data-i18n="button.applyProfile">Use In Run</button>
+              <button id="deleteProfileBtn" class="danger" data-i18n="button.deleteProfile">Delete Custom Profile</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th data-i18n="profiles.table.profile">Profile</th>
+                  <th data-i18n="profiles.table.package">Package</th>
+                  <th data-i18n="profiles.table.strategy">Strategy</th>
+                  <th data-i18n="profiles.table.status">Status</th>
+                  <th data-i18n="profiles.table.notes">Notes</th>
+                  <th data-i18n="profiles.table.action">Action</th>
+                </tr>
+              </thead>
+              <tbody id="profilesTable"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section id="guide" class="panel guide-panel">
+          <div class="panel-head">
+            <div>
+              <h2 data-i18n="guide.title">How The Constructor Works</h2>
+              <p data-i18n="guide.body">Use this page as the control center for full Android automation. Build a profile, tune the run, record manual paths, test, then start a safe run.</p>
+            </div>
+          </div>
+          <div class="guide-grid">
+            <div class="guide-card">
+              <span class="guide-kicker">01</span>
+              <h3 data-i18n="guide.run.title">Run builder</h3>
+              <p data-i18n="guide.run.body">Command combines the selected game, farm, methods, stages, credentials, prompts, and recordings into the environment used by main.py.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">02</span>
+              <h3 data-i18n="guide.profiles.title">Game profiles</h3>
+              <p data-i18n="guide.profiles.body">Profiles describe a game: package name, Play Store query, tutorial hints, purchase-preview hints, blockers, and gameplay strategy. Custom profiles are saved as JSON.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">03</span>
+              <h3 data-i18n="guide.presets.title">Presets</h3>
+              <p data-i18n="guide.presets.body">Presets save a complete run setup so a route can be reused or shared through MCP without re-entering every field.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">04</span>
+              <h3 data-i18n="guide.cv.title">CV autopilot</h3>
+              <p data-i18n="guide.cv.body">CV plans the next UI action from a screenshot. It can tap, type, swipe, press keys, wait, or stop when the goal is done.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">05</span>
+              <h3 data-i18n="guide.recordings.title">Recordings</h3>
+              <p data-i18n="guide.recordings.body">Manual taps, swipes, text, and keys can be recorded into repeatable paths and replayed for install, tutorial, or gameplay stages.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">06</span>
+              <h3 data-i18n="guide.mcp.title">MCP</h3>
+              <p data-i18n="guide.mcp.body">Any MCP-compatible AI client can inspect dashboard state, edit files, create profiles and presets, run checks, use CV, and control the connected Android device.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">07</span>
+              <h3 data-i18n="guide.safety.title">Safety</h3>
+              <p data-i18n="guide.safety.body">Real purchases and final payment confirmations remain blocked. Google phone verification is manual and user-controlled.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">08</span>
+              <h3 data-i18n="guide.tests.title">Tests</h3>
+              <p data-i18n="guide.tests.body">Run Checks compiles active code, runs pytest, and enforces the 100% gate for deterministic MCP/CV/constructor modules.</p>
+            </div>
+          </div>
+        </section>
+
+        <section id="reports" class="grid">
+          <article class="panel span-6">
+            <h2 data-i18n="reports.title">Latest Run Report</h2>
+            <div id="reportTimeline" class="timeline"></div>
+          </article>
+          <article class="panel span-6">
+            <h2 data-i18n="reports.checkOutput">Check Output</h2>
+            <pre id="checkOutput" class="logbox" data-i18n="reports.placeholder">Run checks to populate this panel.</pre>
+          </article>
+        </section>
+
+        <section id="logs" class="panel">
+          <div class="panel-head">
+            <div>
+              <h2 data-i18n="logs.title">Active Run Log</h2>
+              <p data-i18n="logs.body">Tail of the dashboard-started automation process.</p>
+            </div>
+            <button id="logRefreshBtn" class="ghost" data-i18n="button.refresh">Refresh</button>
+          </div>
+          <pre id="runLog" class="logbox tall" data-i18n="logs.placeholder">No active dashboard run.</pre>
+        </section>
+      </main>
+    </div>
+
+    <div id="toast" class="toast"></div>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

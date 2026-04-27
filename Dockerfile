@@ -1,0 +1,29 @@
+FROM python:3.13-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DASHBOARD_HOST=0.0.0.0 \
+    DASHBOARD_PORT=8765 \
+    LOCAL_DEVICE=auto \
+    PURCHASE_MODE=preview \
+    GOOGLE_PHONE_MODE=manual
+
+WORKDIR /app
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+      android-tools-adb \
+      bash \
+      ca-certificates \
+      curl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN python -m pip install --no-cache-dir --upgrade pip \
+    && python -m pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+EXPOSE 8765
+
+CMD ["python", "-m", "dashboard.server"]

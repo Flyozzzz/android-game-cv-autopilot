@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "android-autopilot-dashboard": {
+      "command": "python3",
+      "args": ["-m", "dashboard.mcp_server"],
+      "cwd": "/Users/flyoz/android",
+      "env": {
+        "DASHBOARD_URL": "http://127.0.0.1:8765",
+        "MCP_AUTOSTART_DASHBOARD": "1",
+        "DASHBOARD_MCP_API_KEY": "admin"
+      }
+    }
+  }
+}

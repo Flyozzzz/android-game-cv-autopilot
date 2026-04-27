@@ -1,0 +1,23 @@
+{
+  "title": "Subway Surfers: Fast Runner",
+  "description": "CV проходит меню/age gate, затем быстрый локальный runner-loop делает свайпы.",
+  "farm": "local",
+  "localDevice": "auto",
+  "appiumPort": "4723",
+  "gameProfile": "subway-surfers",
+  "gameName": "Subway Surfers",
+  "gamePackage": "com.kiloo.subwaysurf",
+  "playerPrefix": "Runner",
+  "installMethod": "cv",
+  "tutorialMethod": "cv",
+  "gameplayMethod": "fast",
+  "purchaseMethod": "cv",
+  "purchaseMode": "preview",
+  "googlePhoneMode": "manual",
+  "cvFallbackManual": true,
+  "fastGameplaySeconds": "35",
+  "fastFrameDelay": "0.05",
+  "manualTimeout": "600",
+  "stages": ["install", "tutorial", "gameplay", "purchase_preview"],
+  "cvTutorialInstructions": "Complete age/consent screens and use done as soon as active running gameplay starts."
+}

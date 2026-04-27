@@ -1,0 +1,27 @@
+run = "bash scripts/replit_start.sh"
+entrypoint = "dashboard/server.py"
+modules = ["python-3.11"]
+
+[nix]
+channel = "stable-24_05"
+
+[env]
+DASHBOARD_HOST = "0.0.0.0"
+DASHBOARD_PORT = "8765"
+DASHBOARD_AUTH_ENABLED = "1"
+DASHBOARD_USERNAME = "admin"
+DASHBOARD_PASSWORD = "admin"
+DASHBOARD_MCP_API_KEY = "admin"
+LOCAL_DEVICE = "auto"
+PURCHASE_MODE = "preview"
+GOOGLE_PHONE_MODE = "manual"
+MCP_AUTOSTART_DASHBOARD = "0"
+PYTHONUNBUFFERED = "1"
+
+[deployment]
+run = ["bash", "scripts/replit_start.sh"]
+deploymentTarget = "cloudrun"
+
+[[ports]]
+localPort = 8765
+externalPort = 80
