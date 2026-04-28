@@ -110,7 +110,7 @@ ADB screencap above roughly `180 ms` is a menu/tutorial path, not a fast-gamepla
 path. `adb_raw` may reduce latency by avoiding Android PNG encoding, but if it
 is still above `180 ms`, use `FRAME_SOURCE=scrcpy_raw`, `replay`, or validated
 `minicap` and keep active gameplay local-only. On USB device `47d33e1c`, the
-latest measured `scrcpy_raw_stream` result is `avg_ms=28.235`, `p95_ms=39.183`.
+latest measured `scrcpy_raw_stream` result is `avg_ms=34.138`, `p95_ms=59.464`.
 
 Benchmark matrix reports record device model, Android version, resolution,
 profile id, run count, success count, first break stage, and failure reason.

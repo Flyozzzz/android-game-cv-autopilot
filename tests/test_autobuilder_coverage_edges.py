@@ -365,7 +365,7 @@ def test_builder_launch_live_blank_serial_and_helpers(tmp_path, monkeypatch):
         async def latest_frame(self):
             return _frame()
 
-    monkeypatch.setattr(builder_module, "AdbScreencapSource", FakeAdbSource)
+    monkeypatch.setattr(builder_module, "create_frame_source", lambda **kwargs: FakeAdbSource(**kwargs))
     assert builder._get_frame(builder_module.BuildOptions(serial="device")).source_name == "test"
     assert asyncio.run(builder_module._SingleFrameSource(_frame()).latest_frame()).width == 32
 

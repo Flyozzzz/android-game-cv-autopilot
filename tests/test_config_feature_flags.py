@@ -19,6 +19,7 @@ def _reload_config(monkeypatch, **env):
         "SCRCPY_RAW_BIT_RATE",
         "SCRCPY_RAW_PORT",
         "SCRCPY_RAW_FRAME_WAIT_TIMEOUT",
+        "SCRCPY_RAW_FALLBACK_TO_ADB",
         "CV_MODELS",
     )
     for key in keys:
@@ -50,6 +51,7 @@ def test_perception_feature_flags_default_to_safe_rollout_values(monkeypatch):
     assert cfg.SCRCPY_RAW_BIT_RATE == "2M"
     assert cfg.SCRCPY_RAW_PORT == 0
     assert cfg.SCRCPY_RAW_FRAME_WAIT_TIMEOUT == 3.0
+    assert cfg.SCRCPY_RAW_FALLBACK_TO_ADB is True
     assert cfg.CV_MODELS == ["xiaomi/mimo-v2.5"]
 
 
@@ -72,6 +74,7 @@ def test_perception_feature_flags_accept_supported_values(monkeypatch):
         SCRCPY_RAW_BIT_RATE="4M",
         SCRCPY_RAW_PORT="27183",
         SCRCPY_RAW_FRAME_WAIT_TIMEOUT="2.5",
+        SCRCPY_RAW_FALLBACK_TO_ADB="0",
     )
 
     assert cfg.PERCEPTION_MODE == "shadow"
@@ -90,6 +93,7 @@ def test_perception_feature_flags_accept_supported_values(monkeypatch):
     assert cfg.SCRCPY_RAW_BIT_RATE == "4M"
     assert cfg.SCRCPY_RAW_PORT == 27183
     assert cfg.SCRCPY_RAW_FRAME_WAIT_TIMEOUT == 2.5
+    assert cfg.SCRCPY_RAW_FALLBACK_TO_ADB is False
 
 
 def test_perception_feature_flags_fall_back_on_unknown_choices(monkeypatch):

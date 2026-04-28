@@ -9,7 +9,14 @@ from typing import Any
 from loguru import logger
 
 from core.cv_engine import CVEngine, UIActionPlan
-from core.frame_source import Frame, timestamp_ms
+from core.frame_source import (
+    Frame,
+    close_frame_source,
+    create_frame_source,
+    frame_to_png_bytes,
+    infer_frame_source_serial,
+    timestamp_ms,
+)
 from core.metrics import TraceEvent, new_run_id, record_trace
 from core.perception.defaults import build_default_element_finder
 from core.perception.finder import ElementFinder
@@ -104,57 +111,65 @@ class CVAutopilot:
         values = available_values or {}
         steps: list[AutopilotStep] = []
         run_id = new_run_id()
+        frame_source = create_frame_source(
+            action=self.action,
+            serial=infer_frame_source_serial(self.action),
+        )
 
-        for index in range(1, self.max_steps + 1):
-            screenshot = await self.action.screenshot()
-            plan = await self.cv.plan_next_ui_action(
-                screenshot,
-                goal=goal,
-                available_values=values,
-                recent_actions=self.recent_actions,
-            )
-            outcome = await self._execute_plan(plan, screenshot, values)
-            record_ui_action_plan_trace(
-                plan,
-                screenshot,
-                goal=goal,
-                outcome=outcome,
-                run_id=run_id,
-                index=index,
-                frame_source="adb",
-                policy_result=self._policy_result(plan, outcome),
-            )
-            step = AutopilotStep(
-                index=index,
-                action=plan.action,
-                target=plan.target,
-                reason=plan.reason,
-                outcome=outcome,
-            )
-            steps.append(step)
-            self.recent_actions.append(
-                f"{plan.action}:{plan.target or plan.x}:{plan.y}:{outcome}"
-            )
+        try:
+            for index in range(1, self.max_steps + 1):
+                frame = await frame_source.latest_frame()
+                screenshot = frame_to_png_bytes(frame)
+                plan = await self.cv.plan_next_ui_action(
+                    screenshot,
+                    goal=goal,
+                    available_values=values,
+                    recent_actions=self.recent_actions,
+                )
+                outcome = await self._execute_plan(plan, screenshot, values)
+                record_ui_action_plan_trace(
+                    plan,
+                    screenshot,
+                    goal=goal,
+                    outcome=outcome,
+                    run_id=run_id,
+                    index=index,
+                    frame_source=frame.source_name,
+                    policy_result=self._policy_result(plan, outcome),
+                )
+                step = AutopilotStep(
+                    index=index,
+                    action=plan.action,
+                    target=plan.target,
+                    reason=plan.reason,
+                    outcome=outcome,
+                )
+                steps.append(step)
+                self.recent_actions.append(
+                    f"{plan.action}:{plan.target or plan.x}:{plan.y}:{outcome}"
+                )
 
-            logger.info(
-                f"CV autopilot step {index}: action={plan.action} "
-                f"target={plan.target!r} outcome={outcome} reason={plan.reason!r}"
-            )
+                logger.info(
+                    f"CV autopilot step {index}: action={plan.action} "
+                    f"target={plan.target!r} outcome={outcome} reason={plan.reason!r}"
+                )
 
-            if outcome == "done":
-                return AutopilotResult(status="done", steps=steps, reason=plan.reason)
-            if outcome.startswith("fail"):
-                return AutopilotResult(status="fail", steps=steps, reason=outcome)
-            if self._is_blocker(plan):
-                self._blocker_hits += 1
-                if self._blocker_hits >= self.max_blocker_hits:
-                    return AutopilotResult(
-                        status="fail",
-                        steps=steps,
-                        reason=f"external_blocker:{plan.reason or plan.target}",
-                    )
-            else:
-                self._blocker_hits = 0
+                if outcome == "done":
+                    return AutopilotResult(status="done", steps=steps, reason=plan.reason)
+                if outcome.startswith("fail"):
+                    return AutopilotResult(status="fail", steps=steps, reason=outcome)
+                if self._is_blocker(plan):
+                    self._blocker_hits += 1
+                    if self._blocker_hits >= self.max_blocker_hits:
+                        return AutopilotResult(
+                            status="fail",
+                            steps=steps,
+                            reason=f"external_blocker:{plan.reason or plan.target}",
+                        )
+                else:
+                    self._blocker_hits = 0
+        finally:
+            close_frame_source(frame_source)
 
         return AutopilotResult(status="max_steps", steps=steps, reason="step limit reached")
 

@@ -379,6 +379,28 @@ def test_scrcpy_raw_stream_uses_latest_decoded_jpeg_without_waiting(tmp_path):
     assert frame.rgb_or_bgr_array is not None
 
 
+def test_scrcpy_raw_stream_falls_back_to_adb_when_static(monkeypatch, tmp_path):
+    server = tmp_path / "scrcpy-server"
+    server.write_text("server", encoding="utf-8")
+    source = ScrcpyRawStreamFrameSource(
+        server_path=str(server),
+        fallback_to_adb=True,
+        frame_wait_timeout=0.1,
+    )
+    source._ensure_started = lambda: None
+    source._frame_event.clear()
+
+    async def fake_latest_frame(self):
+        return Frame(77, 5, 6, None, _png(5, 6), "adb", 3.0)
+
+    monkeypatch.setattr(AdbScreencapSource, "latest_frame", fake_latest_frame)
+
+    frame = asyncio.run(source.latest_frame())
+
+    assert frame.source_name == "scrcpy_raw_adb_fallback"
+    assert (frame.width, frame.height) == (5, 6)
+
+
 def test_scrcpy_raw_stream_missing_server_path_errors(tmp_path):
     with pytest.raises(RuntimeError, match="scrcpy-server not found"):
         find_scrcpy_server_path(explicit_path=str(tmp_path / "missing-server"))

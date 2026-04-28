@@ -10,8 +10,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+import core.cv_autopilot as cv_autopilot_module
 from core.cv_autopilot import CVAutopilot
 from core.cv_engine import UIActionPlan, UIElement
+from core.frame_source import Frame
 from core.metrics import metrics_snapshot, reset_metrics
 from core.perception.defaults import reset_default_state_cache
 
@@ -115,6 +117,28 @@ def test_cv_autopilot_taps_visual_target_then_done():
     assert result.ok is True
     assert cv.finds == ["Next button"]
     assert action.taps == [(111, 222)]
+
+
+def test_cv_autopilot_uses_configured_frame_source(monkeypatch):
+    class FakeSource:
+        def __init__(self):
+            self.closed = False
+
+        async def latest_frame(self):
+            return Frame(1, 300, 600, None, _png(), "scrcpy_raw", 1.0)
+
+        def close(self):
+            self.closed = True
+
+    source = FakeSource()
+    monkeypatch.setattr(cv_autopilot_module, "create_frame_source", lambda **kwargs: source)
+    action = FakeAction()
+    cv = FakeCV([UIActionPlan(action="done", reason="ready")])
+
+    result = asyncio.run(CVAutopilot(action, cv=cv).run("finish"))
+
+    assert result.ok is True
+    assert source.closed is True
 
 
 def test_cv_autopilot_local_first_uses_uiautomator_before_llm(monkeypatch):

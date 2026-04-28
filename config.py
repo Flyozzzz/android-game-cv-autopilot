@@ -88,6 +88,7 @@ SCRCPY_RAW_MAX_FPS = int(os.getenv("SCRCPY_RAW_MAX_FPS", "30"))
 SCRCPY_RAW_BIT_RATE = os.getenv("SCRCPY_RAW_BIT_RATE", "2M").strip() or "2M"
 SCRCPY_RAW_PORT = int(os.getenv("SCRCPY_RAW_PORT", "0"))
 SCRCPY_RAW_FRAME_WAIT_TIMEOUT = float(os.getenv("SCRCPY_RAW_FRAME_WAIT_TIMEOUT", "3.0"))
+SCRCPY_RAW_FALLBACK_TO_ADB = _env_bool("SCRCPY_RAW_FALLBACK_TO_ADB", "1")
 ACTION_MODE = _env_choice(
     "ACTION_MODE",
     "menu",

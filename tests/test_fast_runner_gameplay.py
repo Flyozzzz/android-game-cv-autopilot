@@ -4,6 +4,8 @@ from io import BytesIO
 from PIL import Image
 
 import config
+import scenarios.fast_runner_gameplay as fast_runner_gameplay
+from core.frame_source import Frame
 from core.metrics import metrics_snapshot, reset_metrics
 from scenarios.fast_runner_gameplay import FastRunnerGameplayScenario
 
@@ -78,3 +80,30 @@ def test_fast_runner_screen_size_fallbacks(monkeypatch):
             raise RuntimeError("bad")
 
     assert FastRunnerGameplayScenario(None, BadSizeAction())._screen_size() == (111, 222)
+
+
+def test_fast_runner_uses_configured_frame_source(monkeypatch):
+    reset_metrics()
+    monkeypatch.setattr(config, "FAST_GAMEPLAY_SECONDS", 0.02, raising=False)
+    monkeypatch.setattr(config, "FAST_GAMEPLAY_FRAME_DELAY", 0.01, raising=False)
+
+    class FakeSource:
+        def __init__(self):
+            self.calls = 0
+            self.closed = False
+
+        async def latest_frame(self):
+            self.calls += 1
+            return Frame(100 + self.calls, 300, 600, b"\xff" * (300 * 600 * 3), None, "scrcpy_raw", 1.0)
+
+        def close(self):
+            self.closed = True
+
+    source = FakeSource()
+    monkeypatch.setattr(fast_runner_gameplay, "create_frame_source", lambda **kwargs: source)
+
+    result = asyncio.run(FastRunnerGameplayScenario(None, FakeAction()).run())
+
+    assert result is True
+    assert source.calls >= 1
+    assert source.closed is True

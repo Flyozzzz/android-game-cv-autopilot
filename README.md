@@ -273,6 +273,11 @@ local/LLM candidates. `ReplayFrameSource` lets perception tests run from saved
 PNG frames with no connected phone. `ScrcpyRawStreamFrameSource`
 (`FRAME_SOURCE=scrcpy_raw`) starts `scrcpy-server` once, reads raw H.264 through
 an ADB forwarded socket, and decodes it with a persistent host `ffmpeg` process.
+Runtime users go through this same frame-source factory: CV goals, fast runner,
+match-3 gameplay, and Autopilot Builder live capture all honor `FRAME_SOURCE`.
+For static menu/CV screens, `SCRCPY_RAW_FALLBACK_TO_ADB=true` keeps the system
+from failing if the raw stream has not emitted its first packet yet; benchmark
+commands disable that fallback for honest speed numbers.
 The older `ScrcpyFrameSource` remains as a one-shot record/extract fallback, and
 `MinicapFrameSource` reads the minicap socket protocol when minicap is installed
 on the device.
@@ -327,7 +332,7 @@ Interpreting latency:
 
 Latest live USB evidence on `47d33e1c` (Xiaomi POCO, Android 13, 1080x2400):
 `adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`, and
-`scrcpy_raw_stream avg_ms=28.235` / `p95_ms=39.183` with `--nudge-key 82`.
+`scrcpy_raw_stream avg_ms=34.138` / `p95_ms=59.464` with `--nudge-key 82`.
 For fast gameplay use `FRAME_SOURCE=scrcpy_raw`, `PERCEPTION_MODE=local_only`,
 cheap ROI/template/color providers, and keep Vision out of the active loop.
 
@@ -1262,6 +1267,7 @@ Common variables:
 | `CV_JSON_REPAIR_ATTEMPTS` | Bounded repair attempts for malformed Vision planner JSON; defaults to `1` |
 | `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
 | `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `scrcpy_raw`, or `minicap`; `scrcpy_raw` is the persistent scrcpy-server stream for realtime gameplay, `adb_raw` avoids Android PNG encoding, `screenrecord` requires host `ffmpeg`, `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
+| `SCRCPY_RAW_FALLBACK_TO_ADB` | Default `true`; static menu/CV screens may use one ADB PNG fallback if the raw stream has not emitted a first frame |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Enable local template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Enable native Android text/UI candidates |
@@ -1593,7 +1599,10 @@ host `ffmpeg`, `FRAME_SOURCE=replay` читает сохраненные PNG fra
 ADB forward и host `ffmpeg` для realtime local-only gameplay,
 `FRAME_SOURCE=scrcpy` остается one-shot record/extract fallback, а
 `FRAME_SOURCE=minicap` читает minicap socket stream, если minicap установлен на
-устройстве.
+устройстве. CV goal, fast runner, match-3 gameplay и Autopilot Builder идут
+через общий `FrameSource` factory. Для статичных menu/CV экранов
+`SCRCPY_RAW_FALLBACK_TO_ADB=true` не даёт runtime упасть, если raw stream ещё не
+отдал первый packet; benchmark отключает fallback, чтобы скорость была честной.
 
 Подробный ledger по внедрению хранится в
 [docs/perception_roadmap.md](docs/perception_roadmap.md): там перечислены
@@ -1633,7 +1642,7 @@ python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers -
 нужен `FRAME_SOURCE=scrcpy_raw`, `replay`, реально проверенный `minicap`
 и `PERCEPTION_MODE=local_only`. Последний live benchmark на `47d33e1c`:
 `adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`,
-`scrcpy_raw_stream avg_ms=28.235`, `p95_ms=39.183`.
+`scrcpy_raw_stream avg_ms=34.138`, `p95_ms=59.464`.
 
 Запуск приложений в Builder/AppManager делается через Android
 `cmd package resolve-activity --brief` и `am start -n`, а не через `monkey -p`.
@@ -2322,6 +2331,7 @@ git push origin beta-0.1.15c
 | `CV_JSON_REPAIR_ATTEMPTS` | Количество repair retry для malformed Vision planner JSON; по умолчанию `1` |
 | `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
 | `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `scrcpy_raw`, `minicap`; `scrcpy_raw` это persistent scrcpy-server stream для realtime gameplay, `adb_raw` убирает Android PNG encode, `screenrecord` требует `ffmpeg`, `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
+| `SCRCPY_RAW_FALLBACK_TO_ADB` | Default `true`; для статичных menu/CV экранов можно взять один ADB PNG fallback, если raw stream ещё не отдал первый кадр |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Включить template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Включить Android text/UI candidates |

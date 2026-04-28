@@ -167,6 +167,7 @@ async def benchmark_scrcpy_raw_stream(
         serial=serial,
         adb_path=adb_path,
         include_png=False,
+        fallback_to_adb=False,
     )
     timings: list[float] = []
     try:

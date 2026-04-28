@@ -461,6 +461,7 @@ class ScrcpyRawStreamFrameSource(FrameSource):
         port: int = 0,
         include_png: bool = True,
         frame_wait_timeout: float = 3.0,
+        fallback_to_adb: bool = True,
         popen_factory: Any | None = None,
         runner: Any | None = None,
         socket_factory: Any | None = None,
@@ -477,6 +478,7 @@ class ScrcpyRawStreamFrameSource(FrameSource):
         self.port = max(0, int(port or 0))
         self.include_png = bool(include_png)
         self.frame_wait_timeout = max(0.1, float(frame_wait_timeout or 3.0))
+        self.fallback_to_adb = bool(fallback_to_adb)
         self.popen_factory = popen_factory or subprocess.Popen
         self.runner = runner or subprocess.run
         self.socket_factory = socket_factory or socket.create_connection
@@ -495,6 +497,8 @@ class ScrcpyRawStreamFrameSource(FrameSource):
         started = time.perf_counter()
         await asyncio.to_thread(self._ensure_started)
         if self._latest_jpeg is None and not await asyncio.to_thread(self._frame_event.wait, self.frame_wait_timeout):
+            if self.fallback_to_adb:
+                return await self._adb_fallback_frame(started)
             raise RuntimeError(self._no_frame_error())
         with self._lock:
             jpeg = self._latest_jpeg
@@ -512,6 +516,18 @@ class ScrcpyRawStreamFrameSource(FrameSource):
             png_bytes=png,
             source_name="scrcpy_raw",
             latency_ms=round(latency_ms, 3),
+        )
+
+    async def _adb_fallback_frame(self, started: float) -> Frame:
+        frame = await AdbScreencapSource(serial=self.serial, adb_path=self.adb_path).latest_frame()
+        return Frame(
+            timestamp_ms=frame.timestamp_ms,
+            width=frame.width,
+            height=frame.height,
+            rgb_or_bgr_array=frame.rgb_or_bgr_array,
+            png_bytes=frame.png_bytes,
+            source_name="scrcpy_raw_adb_fallback",
+            latency_ms=round((time.perf_counter() - started) * 1000.0, 3),
         )
 
     def close(self) -> None:
@@ -915,6 +931,7 @@ def create_frame_source(
             bit_rate=getattr(config, "SCRCPY_RAW_BIT_RATE", "2M"),
             port=int(getattr(config, "SCRCPY_RAW_PORT", 0)),
             frame_wait_timeout=float(getattr(config, "SCRCPY_RAW_FRAME_WAIT_TIMEOUT", 3.0)),
+            fallback_to_adb=bool(getattr(config, "SCRCPY_RAW_FALLBACK_TO_ADB", True)),
         )
     if source == "minicap":
         return MinicapFrameSource(serial=serial)
@@ -983,6 +1000,37 @@ def frame_to_image(frame: Frame):
     if frame.png_bytes:
         return Image.open(BytesIO(frame.png_bytes)).convert("RGB")
     raise RuntimeError("Frame has neither RGB data nor PNG bytes")
+
+
+def frame_to_png_bytes(frame: Frame) -> bytes:
+    if frame.png_bytes:
+        return frame.png_bytes
+    data = frame.rgb_or_bgr_array
+    if isinstance(data, (bytes, bytearray)):
+        return rgb_to_png(frame.width, frame.height, bytes(data))
+    from io import BytesIO
+
+    image = frame_to_image(frame)
+    buffer = BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def infer_frame_source_serial(action: Any | None = None, default: str = "") -> str:
+    for attr in ("serial", "adb_serial", "device_serial"):
+        value = getattr(action, attr, "") if action is not None else ""
+        if value:
+            return str(value)
+    configured = str(getattr(config, "LOCAL_DEVICE", "") or os.getenv("LOCAL_DEVICE", "") or "").strip()
+    if configured and configured.lower() != "auto":
+        return configured
+    return str(default or "")
+
+
+def close_frame_source(source: FrameSource) -> None:
+    close = getattr(source, "close", None)
+    if callable(close):
+        close()
 
 
 def _require_binary(path: str, label: str) -> None:

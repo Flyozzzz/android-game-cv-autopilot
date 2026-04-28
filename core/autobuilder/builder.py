@@ -28,7 +28,7 @@ from core.autobuilder.self_healing import SelfHealingEngine
 from core.autobuilder.task_parser import parse_goal_prompt
 from core.autobuilder.template_miner import mine_templates
 from core.autobuilder.versioning import AutopilotVersionStore
-from core.frame_source import AdbScreencapSource, Frame, FrameSource, ReplayFrameSource, timestamp_ms
+from core.frame_source import Frame, FrameSource, ReplayFrameSource, close_frame_source, create_frame_source, timestamp_ms
 
 
 class BuildOptions:
@@ -110,7 +110,11 @@ class AutopilotBuilder:
             exploration = live_exploration.state
             replay_frame_paths = list(live_exploration.frame_paths)
             if replay_frame_paths:
-                frame = asyncio.run(ReplayFrameSource(replay_frame_paths).latest_frame())
+                source = ReplayFrameSource(replay_frame_paths)
+                try:
+                    frame = asyncio.run(source.latest_frame())
+                finally:
+                    close_frame_source(source)
         else:
             context, exploration = asyncio.run(Explorer(frame_source=_SingleFrameSource(frame)).explore(context.with_updates(screen_graph=graph)))
             graph = context.screen_graph or graph
@@ -217,9 +221,17 @@ class AutopilotBuilder:
 
     def _get_frame(self, options: BuildOptions) -> Frame:
         if options.frame_paths:
-            return asyncio.run(ReplayFrameSource(options.frame_paths).latest_frame())
+            source = ReplayFrameSource(options.frame_paths)
+            try:
+                return asyncio.run(source.latest_frame())
+            finally:
+                close_frame_source(source)
         if options.serial:
-            return asyncio.run(AdbScreencapSource(serial=options.serial, adb_path=options.adb_path).latest_frame())
+            source = create_frame_source(serial=options.serial)
+            try:
+                return asyncio.run(source.latest_frame())
+            finally:
+                close_frame_source(source)
         return _blank_frame()
 
     def _analyze_screen(

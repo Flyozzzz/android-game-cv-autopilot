@@ -89,6 +89,12 @@ roadmap. Each item must include real code and tests before it is marked done.
 - Scrcpy raw stream source starts `scrcpy-server`, forwards
   `localabstract:scrcpy`, reads raw H.264, and decodes through persistent host
   `ffmpeg`; this is the validated realtime path for USB device `47d33e1c`.
+- CVAutopilot, FastRunnerGameplayScenario, Match3GameplayScenario, and
+  AutopilotBuilder serial capture now use the shared frame-source factory
+  instead of hard-coded ADB screenshots.
+- `SCRCPY_RAW_FALLBACK_TO_ADB` keeps static menu/CV screens working when
+  scrcpy has not emitted an initial packet yet; reaction benchmarks instantiate
+  the raw source without this fallback.
 - Minicap source forwards the minicap localabstract socket and decodes JPEG
   frames from the minicap banner/frame-size protocol.
 
@@ -283,7 +289,7 @@ roadmap. Each item must include real code and tests before it is marked done.
   - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw`
     -> latest `adb_raw_screencap avg_ms=841.762`, status `slow`.
   - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82`
-    -> `scrcpy_raw_stream avg_ms=28.235`, `p95_ms=39.183`, status `fast`.
+    -> `scrcpy_raw_stream avg_ms=34.138`, `p95_ms=59.464`, status `fast`.
   - `ScrcpyFrameSource` with host `scrcpy 3.3.4` produced a real 1080x2400
     frame, but the one-shot record/extract path measured about `4968 ms`; it is
     not a realtime loop.

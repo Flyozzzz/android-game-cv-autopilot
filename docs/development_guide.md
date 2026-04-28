@@ -105,7 +105,13 @@ frame sources with local-only providers. `adb_raw` is useful for diagnosis and
 may be faster than PNG screencap, but it is not automatically realtime on every
 USB device. On USB device `47d33e1c`, the latest measured values were
 `adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`, and
-`scrcpy_raw_stream avg_ms=28.235` / `p95_ms=39.183`.
+`scrcpy_raw_stream avg_ms=34.138` / `p95_ms=59.464`.
+
+Runtime paths use the shared frame-source factory: CV autopilot goals, fast
+runner, match-3 gameplay, and Autopilot Builder serial capture all honor
+`FRAME_SOURCE`. `SCRCPY_RAW_FALLBACK_TO_ADB=true` is intentionally enabled for
+static menu/CV screens; use `scripts/reaction_benchmark.py --source scrcpy_raw`
+for fallback-free stream speed checks.
 
 App launches in `core/autobuilder/app_manager.py` resolve the launcher activity
 with `cmd package resolve-activity --brief` and execute it with `am start -n`.
