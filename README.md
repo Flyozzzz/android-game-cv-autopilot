@@ -939,7 +939,7 @@ Current local status:
 Full local regression: 378 passed, 3 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
-Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
+Live OpenRouter CV+Builder smoke: passed on USB device 47d33e1c with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
 Benchmark matrix smoke: subway-surfers 1/1 launch+capture run passed on USB device 47d33e1c
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
@@ -2040,7 +2040,7 @@ guard-правилами.
 Full local regression: 378 passed, 3 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
-Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
+Live OpenRouter CV+Builder smoke: passed on USB device 47d33e1c with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
 Benchmark matrix smoke: subway-surfers 1/1 launch+capture run passed on USB device 47d33e1c
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%

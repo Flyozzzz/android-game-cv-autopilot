@@ -256,8 +256,8 @@ roadmap. Each item must include real code and tests before it is marked done.
   - Result: `3 passed`; captured a real frame, matched a real crop through
     `TemplateProvider`, ran `ElementFinder` in `local_only`, and did not call
     LLM.
-- Live OpenRouter CV+Builder smoke on `emulator-5554`
-  - Command: `OPENROUTER_API_KEY=... CV_MODELS=xiaomi/mimo-v2.5 LOCAL_DEVICE=emulator-5554 python3 -m pytest tests/test_live_openrouter_smoke.py -q`
+- Live OpenRouter CV+Builder smoke on USB device `47d33e1c`
+  - Command: `OPENROUTER_API_KEY=... CV_MODELS=xiaomi/mimo-v2.5 LOCAL_DEVICE=47d33e1c python3 -m pytest tests/test_live_openrouter_smoke.py -q`
   - Result: passed; planned one real Vision action, launched
     `com.android.settings`, executed four real ADB exploration gestures, saved
     five replay frames, recorded four ScreenGraph transitions, and generated an

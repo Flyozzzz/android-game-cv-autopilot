@@ -89,7 +89,7 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
   on USB device `47d33e1c` with Android 13 / 1080x2400. `adb_raw` remained
   menu/tutorial speed only, so fast gameplay still requires replay or validated
   streaming/minicap capture.
-- Live OpenRouter CV+Builder smoke: passed on `emulator-5554` with
+- Live OpenRouter CV+Builder smoke: passed on USB device `47d33e1c` with
   `xiaomi/mimo-v2.5`; the Builder launched `com.android.settings`, executed
   four real ADB exploration gestures, saved five replay frames, and recorded
   four ScreenGraph transitions.
