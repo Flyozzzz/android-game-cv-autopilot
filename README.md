@@ -5,15 +5,15 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-348%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-350%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `348 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `350 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
-Real Subway Surfers smoke passed · Purchases `preview only`
+Subway Surfers local runner smoke passed · Purchases `preview only`
 
 Android Game CV Autopilot is a local Android automation lab for installing
 games, passing safe onboarding, running gameplay helpers, navigating to purchase
@@ -21,7 +21,7 @@ preview screens, and controlling everything from a bilingual web dashboard or an
 MCP-compatible AI client.
 
 It is designed for real Android devices and emulators connected through ADB and
-Appium. The project now uses a local-first perception engine: fast frame access,
+Appium. The default perception mode is local-first: fast frame access,
 ROI zones, UIAutomator/text candidates, template matching, optional local
 detectors, screen cache, action scheduling, and Vision LLM only as a fallback.
 It also includes manual phone control, recorded action replay, custom game
@@ -83,16 +83,18 @@ automation:
 - Let MCP-compatible AI clients inspect, edit safe data files, test, and operate
   the system.
 
-Built-in game profiles currently include:
+Built-in game profiles have different maturity levels. Only `talking-tom` is
+marked `proven=True` in code; the others are reusable starting points or helper
+profiles that still need per-device validation.
 
-| Profile | Package | Strategy |
-| --- | --- | --- |
-| `brawl-stars` | `com.supercell.brawlstars` | Generic CV |
-| `talking-tom` | `com.outfit7.mytalkingtomfree` | Proven CV route |
-| `subway-surfers` | `com.kiloo.subwaysurf` | Fast runner helper |
-| `candy-crush` | `com.king.candycrushsaga` | Match-3 helper |
-| `clash-royale` | `com.supercell.clashroyale` | Generic CV |
-| `clash-of-clans` | `com.supercell.clashofclans` | Generic CV |
+| Profile | Package | Strategy | Maturity |
+| --- | --- | --- | --- |
+| `talking-tom` | `com.outfit7.mytalkingtomfree` | CV route | Proven on one connected phone up to purchase preview |
+| `subway-surfers` | `com.kiloo.subwaysurf` | Fast runner helper | Local runner smoke passed; not a universal gameplay bot |
+| `candy-crush` | `com.king.candycrushsaga` | Match-3 helper | Solver profile, needs level-specific validation |
+| `brawl-stars` | `com.supercell.brawlstars` | Generic CV | Conservative profile with login/server blockers |
+| `clash-royale` | `com.supercell.clashroyale` | Generic CV | Generic, not proven on this phone |
+| `clash-of-clans` | `com.supercell.clashofclans` | Generic CV | Generic, not proven on this phone |
 
 ## Safety Model
 
@@ -233,7 +235,7 @@ Implemented rollout flags:
 
 | Variable | Values | Meaning |
 | --- | --- | --- |
-| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, `local_only` | Controls provider order and fallback behavior |
+| `PERCEPTION_MODE` | `local_first` default; also `llm_first`, `shadow`, `local_only` | Controls provider order and fallback behavior |
 | `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap` | Selects capture backend; all four are implemented, with `scrcpy`/`minicap` requiring their external host/device prerequisites |
 | `ACTION_MODE` | `menu`, `fast` | Chooses safe menu pauses or fast gameplay pauses |
 | `ENABLE_TEMPLATE_PROVIDER` | `true` / `false` | Enables template matching |
@@ -315,7 +317,7 @@ Default local login:
 
 ```text
 username: admin
-password: admin
+password: change-me
 ```
 
 Change dashboard credentials through environment variables:
@@ -460,8 +462,8 @@ Replit defaults:
 | `DASHBOARD_HOST` | `0.0.0.0` |
 | `DASHBOARD_PORT` | `8765` |
 | `DASHBOARD_USERNAME` | `admin` |
-| `DASHBOARD_PASSWORD` | `admin` |
-| `DASHBOARD_MCP_API_KEY` | `admin` |
+| `DASHBOARD_PASSWORD` | Set in Replit Secrets |
+| `DASHBOARD_MCP_API_KEY` | Set in Replit Secrets |
 | `PURCHASE_MODE` | `preview` |
 | `GOOGLE_PHONE_MODE` | `manual` |
 
@@ -554,9 +556,9 @@ Manual recorder behavior:
 
 ![Login screen](docs/screenshots/01-login.png)
 
-Login protects the local dashboard with configurable credentials. Defaults are
-`admin` / `admin` for local development and can be changed through environment
-variables.
+Login protects the local dashboard with configurable credentials. Local
+development defaults are `admin` / `change-me`. The server refuses to bind
+outside localhost with weak dashboard password or MCP API key defaults.
 
 ![Command section](docs/screenshots/02-command.png)
 
@@ -771,7 +773,7 @@ Example MCP client config:
       "env": {
         "DASHBOARD_URL": "http://127.0.0.1:8765",
         "MCP_AUTOSTART_DASHBOARD": "1",
-        "DASHBOARD_MCP_API_KEY": "admin"
+        "DASHBOARD_MCP_API_KEY": "change-me"
       }
     }
   }
@@ -783,7 +785,8 @@ clients share the same run state, logs, profiles, presets, recordings, guarded
 data-file editor, CV tools, device controls, and safety guards.
 
 MCP authenticates with the dashboard through `DASHBOARD_MCP_API_KEY`. The local
-default is `admin`; change it before exposing the dashboard outside localhost.
+example value is `change-me`; set a strong value before exposing the dashboard
+outside localhost.
 
 More MCP details are in [dashboard/MCP.md](dashboard/MCP.md).
 
@@ -888,11 +891,11 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-348 passed
+350 passed
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
-Real Subway Surfers smoke: passed on device 47d33e1c
+Subway Surfers local runner smoke: passed on device 47d33e1c
 ```
 
 Run all active tests:
@@ -912,7 +915,7 @@ Run the dashboard-equivalent check pipeline:
 ```bash
 curl -sS -X POST http://127.0.0.1:8765/api/check \
   -H 'Content-Type: application/json' \
-  -H 'X-Dashboard-Api-Key: admin' \
+  -H 'X-Dashboard-Api-Key: change-me' \
   -d '{}'
 ```
 
@@ -1070,7 +1073,8 @@ Release beta:
 Before publishing to a public GitHub repository:
 
 1. Keep real secrets in `.env`, Replit Secrets, shell environment, or your MCP
-   client config. Do not commit them.
+   client config. Do not commit them. If a key was ever public, revoke/rotate it
+   at the provider first; deleting it from the latest commit is not enough.
 2. Run the active tests:
 
 ```bash
@@ -1100,6 +1104,14 @@ python3 -m pytest \
 
 ```bash
 bash scripts/secret_scan.sh
+```
+
+If a credential reached git history, remove the file/path from all history with
+`git filter-repo` or BFG and coordinate the force-push:
+
+```bash
+git filter-repo --path REQUIREMENTS.md --invert-paths
+git push --force-with-lease origin main
 ```
 
 6. Validate Docker:
@@ -1146,7 +1158,7 @@ Common variables:
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
 | `CV_MODELS` | Comma-separated Vision model fallback list; defaults to `xiaomi/mimo-v2.5` |
-| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, or `local_only` |
+| `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
 | `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, or `minicap`; `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Enable local template matching |
@@ -1173,7 +1185,7 @@ Common variables:
 | `MANUAL_CONTROL_TIMEOUT_SECONDS` | Manual checkpoint timeout |
 | `DASHBOARD_AUTH_ENABLED` | Enable/disable local dashboard login, default `1` |
 | `DASHBOARD_USERNAME` | Dashboard username, default `admin` |
-| `DASHBOARD_PASSWORD` | Dashboard password, default `admin` |
+| `DASHBOARD_PASSWORD` | Dashboard password, default `change-me`; weak values are rejected for non-localhost binds |
 | `DASHBOARD_SESSION_TTL_SECONDS` | Browser session lifetime |
 | `DASHBOARD_MCP_API_KEY` | API key used by MCP and other non-browser clients |
 
@@ -1491,7 +1503,7 @@ http://127.0.0.1:8765
 
 ```text
 login: admin
-password: admin
+password: change-me
 ```
 
 Настройка логина и MCP API key:
@@ -1529,8 +1541,8 @@ bash scripts/replit_start.sh
 | `DASHBOARD_HOST` | `0.0.0.0` |
 | `DASHBOARD_PORT` | `8765` |
 | `DASHBOARD_USERNAME` | `admin` |
-| `DASHBOARD_PASSWORD` | `admin` |
-| `DASHBOARD_MCP_API_KEY` | `admin` |
+| `DASHBOARD_PASSWORD` | Задай в Replit Secrets |
+| `DASHBOARD_MCP_API_KEY` | Задай в Replit Secrets |
 | `PURCHASE_MODE` | `preview` |
 | `GOOGLE_PHONE_MODE` | `manual` |
 
@@ -1828,7 +1840,7 @@ python3 -m dashboard.mcp_server
       "env": {
         "DASHBOARD_URL": "http://127.0.0.1:8765",
         "MCP_AUTOSTART_DASHBOARD": "1",
-        "DASHBOARD_MCP_API_KEY": "admin"
+        "DASHBOARD_MCP_API_KEY": "change-me"
       }
     }
   }
@@ -1886,11 +1898,11 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-348 passed
+350 passed
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
-Real Subway Surfers smoke: passed on device 47d33e1c
+Subway Surfers local runner smoke: passed on device 47d33e1c
 ```
 
 Полный прогон:
@@ -1904,7 +1916,7 @@ python3 -m pytest -q
 ```bash
 curl -sS -X POST http://127.0.0.1:8765/api/check \
   -H 'Content-Type: application/json' \
-  -H 'X-Dashboard-Api-Key: admin' \
+  -H 'X-Dashboard-Api-Key: change-me' \
   -d '{}'
 ```
 
@@ -2061,6 +2073,14 @@ python3 -m pytest \
 bash scripts/secret_scan.sh
 ```
 
+Если credential уже попал в git history, сначала отзови/ротируй ключ у
+провайдера, затем вырежи файл/путь из истории и согласованно сделай force-push:
+
+```bash
+git filter-repo --path REQUIREMENTS.md --invert-paths
+git push --force-with-lease origin main
+```
+
 6. Проверь Docker:
 
 ```bash
@@ -2099,7 +2119,7 @@ git push origin beta-0.1.15c
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
 | `CV_MODELS` | Список Vision models через запятую; по умолчанию `xiaomi/mimo-v2.5` |
-| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, `local_only` |
+| `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
 | `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap`; `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Включить template matching |
@@ -2116,7 +2136,7 @@ git push origin beta-0.1.15c
 | `GAMEPLAY_AUTOPILOT_VIA` | `auto`, `fast`, `manual`, `recorded`, `off` |
 | `PURCHASE_MODE` | Dashboard принудительно использует `preview` |
 | `DASHBOARD_USERNAME` | Логин dashboard, default `admin` |
-| `DASHBOARD_PASSWORD` | Пароль dashboard, default `admin` |
+| `DASHBOARD_PASSWORD` | Пароль dashboard, default `change-me`; слабые значения запрещены для non-localhost bind |
 | `DASHBOARD_MCP_API_KEY` | API key для MCP и non-browser клиентов |
 
 Не коммить реальные API keys, SMS credentials, cloud credentials, Google

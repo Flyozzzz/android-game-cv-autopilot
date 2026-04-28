@@ -188,11 +188,31 @@ def _dashboard_username() -> str:
 
 
 def _dashboard_password() -> str:
-    return str(getattr(config, "DASHBOARD_PASSWORD", "admin") or "admin")
+    return str(getattr(config, "DASHBOARD_PASSWORD", "change-me") or "change-me")
 
 
 def _dashboard_mcp_api_key() -> str:
-    return str(getattr(config, "DASHBOARD_MCP_API_KEY", "admin") or "admin")
+    return str(getattr(config, "DASHBOARD_MCP_API_KEY", "change-me") or "change-me")
+
+
+def _is_loopback_host(host: str) -> bool:
+    normalized = str(host or "").strip().lower()
+    return normalized in {"", "127.0.0.1", "localhost", "::1"}
+
+
+def _unsafe_public_secret(value: str) -> bool:
+    return str(value or "").strip().lower() in {"", "admin", "change-me", "changeme", "password"}
+
+
+def _validate_dashboard_exposure(host: str) -> None:
+    if _is_loopback_host(host):
+        return
+    if not _dashboard_auth_enabled():
+        raise RuntimeError("DASHBOARD_AUTH_ENABLED=0 is not allowed when DASHBOARD_HOST is not loopback")
+    if _unsafe_public_secret(_dashboard_password()):
+        raise RuntimeError("Set a strong DASHBOARD_PASSWORD before binding dashboard outside localhost")
+    if _unsafe_public_secret(_dashboard_mcp_api_key()):
+        raise RuntimeError("Set a strong DASHBOARD_MCP_API_KEY before binding dashboard outside localhost")
 
 
 def _login_matches(username: str, password: str) -> bool:
@@ -1183,6 +1203,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
 def main() -> None:
     port = int(os.getenv("DASHBOARD_PORT", "8765"))
     host = os.getenv("DASHBOARD_HOST", "127.0.0.1").strip() or "127.0.0.1"
+    _validate_dashboard_exposure(host)
     server = ThreadingHTTPServer((host, port), DashboardHandler)
     display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     print(f"Dashboard: http://{display_host}:{port}")

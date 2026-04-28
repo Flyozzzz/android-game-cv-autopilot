@@ -5,7 +5,8 @@ roadmap. Each item must include real code and tests before it is marked done.
 
 ## Rollout Rules
 
-- Keep existing `llm_first` behavior available while new modules land.
+- Keep `llm_first` behavior available for compatibility, but default runtime
+  configuration should start in `local_first`.
 - Use `shadow` mode to compare local perception against current behavior before
   letting local providers drive actions.
 - Do not add empty provider shells as completed work.
@@ -230,7 +231,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `293 passed`
+  - Result: `350 passed`
 - `python3 -m pytest tests/test_dashboard_mcp_server.py tests/test_cv_prompt_templates.py tests/test_dashboard_cv_bridge.py tests/test_game_profiles.py --cov=dashboard.mcp_server --cov=core.cv_prompt_templates --cov=dashboard.cv_bridge --cov=core.game_profiles --cov-report=term-missing --cov-fail-under=100 -q`
   - Result: `32 passed`, `100.00%` deterministic constructor/MCP/CV coverage
 - `python3 -m pytest tests/test_config_feature_flags.py tests/test_metrics.py tests/test_input_scheduler.py tests/test_frame_source_replay.py tests/test_default_perception_factory.py tests/test_roi_selector.py tests/test_screen_stability.py tests/test_element_fusion.py tests/test_element_finder_contract.py tests/test_template_provider.py tests/test_uiautomator_provider.py tests/test_screen_state_cache.py tests/test_llm_provider.py tests/test_dashboard_vision_inspector.py tests/test_dashboard_vision_editing.py tests/test_runner_plugin.py tests/test_fast_runner_gameplay.py tests/test_match3_gameplay.py tests/test_match3_scoring.py tests/test_detector_provider.py tests/test_cv_autopilot.py --cov=core.metrics --cov=core.input_scheduler --cov=core.frame_source --cov=core.perception.defaults --cov=core.perception.roi --cov=core.perception.screen_stability --cov=core.perception.element --cov=core.perception.fusion --cov=core.perception.finder --cov=core.perception.template_registry --cov=core.perception.providers.template_provider --cov=core.perception.providers.uiautomator_provider --cov=core.perception.state_cache --cov=core.perception.providers.llm_provider --cov=dashboard.api_vision --cov=core.gameplay.base_plugin --cov=core.gameplay.runner_plugin --cov=core.perception.providers.detector_provider --cov=scenarios.fast_runner_gameplay --cov=scenarios.match3_gameplay --cov=core.cv_autopilot --cov-report=term-missing --cov-fail-under=100 -q`

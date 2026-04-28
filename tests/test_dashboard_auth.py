@@ -15,10 +15,10 @@ def test_dashboard_auth_defaults_are_configurable():
 
 def test_dashboard_login_and_session_helpers(monkeypatch):
     monkeypatch.setattr(server.config, "DASHBOARD_USERNAME", "admin")
-    monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "admin")
+    monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "change-me")
     monkeypatch.setattr(server.config, "DASHBOARD_SESSION_TTL_SECONDS", 60)
 
-    assert server._login_matches("admin", "admin") is True
+    assert server._login_matches("admin", "change-me") is True
     assert server._login_matches("admin", "bad") is False
 
     token = server._create_session("admin")
@@ -48,6 +48,27 @@ def test_dashboard_public_paths_and_login_contract():
     assert 'id="loginPassword"' in login_html
     assert "/api/login" in login_html
     assert 'id="logoutBtn"' in (server.STATIC_DIR / "index.html").read_text(encoding="utf-8")
+
+
+def test_dashboard_rejects_public_bind_with_weak_defaults(monkeypatch):
+    monkeypatch.setattr(server.config, "DASHBOARD_AUTH_ENABLED", True)
+    monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "change-me")
+    monkeypatch.setattr(server.config, "DASHBOARD_MCP_API_KEY", "change-me")
+
+    try:
+        server._validate_dashboard_exposure("0.0.0.0")
+    except RuntimeError as exc:
+        assert "DASHBOARD_PASSWORD" in str(exc)
+    else:
+        raise AssertionError("public bind with weak secrets must be rejected")
+
+
+def test_dashboard_allows_public_bind_only_with_strong_secrets(monkeypatch):
+    monkeypatch.setattr(server.config, "DASHBOARD_AUTH_ENABLED", True)
+    monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "local-long-random-password")
+    monkeypatch.setattr(server.config, "DASHBOARD_MCP_API_KEY", "local-long-random-mcp-key")
+
+    server._validate_dashboard_exposure("0.0.0.0")
 
 
 def test_mcp_requests_include_dashboard_api_key(monkeypatch):

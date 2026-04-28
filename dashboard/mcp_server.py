@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://127.0.0.1:8765").rstrip("/")
-DASHBOARD_MCP_API_KEY = os.getenv("DASHBOARD_MCP_API_KEY", "admin").strip()
+DASHBOARD_MCP_API_KEY = os.getenv("DASHBOARD_MCP_API_KEY", "change-me").strip()
 AUTOSTART_DASHBOARD = os.getenv("MCP_AUTOSTART_DASHBOARD", "1").strip().lower() in {
     "1",
     "true",

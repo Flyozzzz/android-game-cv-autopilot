@@ -77,7 +77,7 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
 
 ## Completed Audit Steps
 
-- Full repository regression: `348 passed`.
+- Full repository regression: `350 passed`.
 - JSON/static validation: `dashboard/static/i18n.json` parsed successfully,
   `node --check` passed for dashboard JS.
 - Dashboard Builder API/static contract tests: passed.

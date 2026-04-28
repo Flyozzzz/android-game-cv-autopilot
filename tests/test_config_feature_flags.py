@@ -27,7 +27,7 @@ def _reload_config(monkeypatch, **env):
 def test_perception_feature_flags_default_to_safe_rollout_values(monkeypatch):
     cfg = _reload_config(monkeypatch)
 
-    assert cfg.PERCEPTION_MODE == "llm_first"
+    assert cfg.PERCEPTION_MODE == "local_first"
     assert cfg.FRAME_SOURCE == "adb"
     assert cfg.ACTION_MODE == "menu"
     assert cfg.ENABLE_TEMPLATE_PROVIDER is True
@@ -72,7 +72,7 @@ def test_perception_feature_flags_fall_back_on_unknown_choices(monkeypatch):
         ACTION_MODE="turbo",
     )
 
-    assert cfg.PERCEPTION_MODE == "llm_first"
+    assert cfg.PERCEPTION_MODE == "local_first"
     assert cfg.FRAME_SOURCE == "adb"
     assert cfg.ACTION_MODE == "menu"
 

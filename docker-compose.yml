@@ -4,9 +4,9 @@ services:
       context: .
     image: android-game-cv-autopilot:0.1.15c-beta
     ports:
-      - "${DASHBOARD_PORT:-8765}:8765"
+      - "127.0.0.1:${DASHBOARD_PORT:-8765}:8765"
     environment:
-      DASHBOARD_HOST: "0.0.0.0"
+      DASHBOARD_HOST: "127.0.0.1"
       DASHBOARD_PORT: "8765"
       DASHBOARD_AUTH_ENABLED: "${DASHBOARD_AUTH_ENABLED:-1}"
       DASHBOARD_USERNAME: "${DASHBOARD_USERNAME:-admin}"

@@ -22,9 +22,9 @@ def _env_choice(name: str, default: str, choices: tuple[str, ...]) -> str:
 # ══════════════════════════════════════════════════
 DASHBOARD_AUTH_ENABLED = _env_bool("DASHBOARD_AUTH_ENABLED", "1")
 DASHBOARD_USERNAME = os.getenv("DASHBOARD_USERNAME", "admin").strip() or "admin"
-DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "admin").strip() or "admin"
+DASHBOARD_PASSWORD = os.getenv("DASHBOARD_PASSWORD", "change-me").strip() or "change-me"
 DASHBOARD_SESSION_TTL_SECONDS = int(os.getenv("DASHBOARD_SESSION_TTL_SECONDS", "86400"))
-DASHBOARD_MCP_API_KEY = os.getenv("DASHBOARD_MCP_API_KEY", "admin").strip() or "admin"
+DASHBOARD_MCP_API_KEY = os.getenv("DASHBOARD_MCP_API_KEY", "change-me").strip() or "change-me"
 
 
 # ══════════════════════════════════════════════════
@@ -69,7 +69,7 @@ CV_COORDINATE_GRID_STEP = int(os.getenv("CV_COORDINATE_GRID_STEP", "240"))
 # ══════════════════════════════════════════════════
 PERCEPTION_MODE = _env_choice(
     "PERCEPTION_MODE",
-    "llm_first",
+    "local_first",
     ("llm_first", "local_first", "local_only", "shadow"),
 )
 FRAME_SOURCE = _env_choice(

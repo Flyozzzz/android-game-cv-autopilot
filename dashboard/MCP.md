@@ -18,7 +18,7 @@ Example client config:
       "env": {
         "DASHBOARD_URL": "http://127.0.0.1:8765",
         "MCP_AUTOSTART_DASHBOARD": "1",
-        "DASHBOARD_MCP_API_KEY": "admin"
+        "DASHBOARD_MCP_API_KEY": "change-me"
       }
     }
   }
@@ -30,8 +30,8 @@ clients share the same run state, logs, presets, game profiles, recordings, CV
 tools, and guarded data-file editor.
 
 The MCP server sends `DASHBOARD_MCP_API_KEY` as `X-Dashboard-Api-Key` on every
-dashboard API request. The local default is `admin`; change it in both the
-dashboard environment and MCP client config for real use.
+dashboard API request. The local example value is `change-me`; set a strong
+value in both the dashboard environment and MCP client config for real use.
 
 Available tool groups:
 

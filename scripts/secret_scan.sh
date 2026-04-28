@@ -3,7 +3,7 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 
-PATTERN='(sk-or-v1-[A-Za-z0-9_-]{20,}|eyJhbGciOi[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{20,}|BROWSERSTACK_ACCESS_KEY\s*=\s*["'"'"'][^"'"'"']+|LT_ACCESS_KEY\s*=\s*["'"'"'][^"'"'"']+|FIVESIM_API_KEY\s*=\s*["'"'"'][^"'"'"']+|OPENROUTER_API_KEY\s*=\s*["'"'"'][^"'"'"']+)'
+PATTERN='(sk-or-v1-[A-Za-z0-9_-]{20,}|eyJhbGciOi[A-Za-z0-9_-]{20,}|AIza[0-9A-Za-z_-]{20,}|(BROWSERSTACK_ACCESS_KEY|LT_ACCESS_KEY|FIVESIM_API_KEY|OPENROUTER_API_KEY)\s*[:=]\s*["'"'"']?[A-Za-z0-9_./+=-]{16,}|(BrowserStack|LambdaTest).{0,60}(access[ _-]?key|token|secret)\s*[:=]\s*["'"'"']?[A-Za-z0-9_./+=-]{16,})'
 
 if rg -n --hidden --pcre2 \
   --glob '!.git/**' \

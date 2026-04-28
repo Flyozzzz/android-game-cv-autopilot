@@ -23,12 +23,17 @@ def test_docker_pipeline_uses_safe_dashboard_defaults():
     assert "DASHBOARD_MCP_API_KEY=" not in dockerfile
     assert 'CMD ["python", "-m", "dashboard.server"]' in dockerfile
     assert "android-game-cv-autopilot:0.1.15c-beta" in compose
+    assert "127.0.0.1:${DASHBOARD_PORT:-8765}:8765" in compose
+    assert 'DASHBOARD_HOST: "127.0.0.1"' in compose
     assert 'DASHBOARD_PASSWORD: "${DASHBOARD_PASSWORD:-change-me}"' in compose
+    assert 'DASHBOARD_MCP_API_KEY: "${DASHBOARD_MCP_API_KEY:-change-me}"' in compose
     assert 'PURCHASE_MODE: "preview"' in compose
     assert 'GOOGLE_PHONE_MODE: "manual"' in compose
     assert "ADB_SERVER_SOCKET" in compose
     assert "OPENROUTER_API_KEY" in env_example
     assert "DASHBOARD_PASSWORD=change-me" in env_example
+    assert "PERCEPTION_MODE=local_first" in env_example
+    assert "CV_MODELS=xiaomi/mimo-v2.5" in env_example
 
 
 def test_public_release_ignores_local_sensitive_artifacts():
