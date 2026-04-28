@@ -8,6 +8,8 @@ from pathlib import Path
 import re
 from collections.abc import Mapping
 
+from core.profile_validation import normalize_validation_status, profile_maturity
+
 
 ScreenZone = tuple[float, float, float, float]
 
@@ -100,6 +102,10 @@ class GameProfile:
     blocker_words: tuple[str, ...] = ()
     gameplay_strategy: str = "none"  # none | fast_runner | match3_solver | solver_required
     proven: bool = False
+    validation_status: str = "starter"  # proven | validated | starter | helper | blocked | unknown
+    validation_scope: tuple[str, ...] = ()
+    validation_runs: int = 0
+    last_validated: str = ""
     notes: str = ""
     max_tutorial_steps: int = 0
     max_purchase_steps: int = 0
@@ -147,6 +153,9 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "попробуй позже",
         ),
         notes="Installed in validation, but current device/network hit a login/server blocker.",
+        validation_status="blocked",
+        validation_scope=("install",),
+        validation_runs=1,
         screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
     GameProfile(
@@ -166,6 +175,10 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "Tap Shop/Store and stop on the first real-money Remove Ads or currency offer.",
         ),
         proven=True,
+        validation_status="proven",
+        validation_scope=("install", "tutorial", "purchase_preview"),
+        validation_runs=1,
+        last_validated="2026-04-27",
         notes="Validated end-to-end on the connected Android phone up to purchase preview.",
         max_tutorial_steps=80,
         max_purchase_steps=35,
@@ -186,6 +199,9 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "Use store/shop buttons from the home screen; never tap price or buy confirmations.",
         ),
         gameplay_strategy="fast_runner",
+        validation_status="helper",
+        validation_scope=("fast_runner_smoke",),
+        validation_runs=1,
         notes="Needs local realtime gestures; LLM CV is too slow for active running.",
         max_tutorial_steps=90,
         max_purchase_steps=40,
@@ -206,6 +222,8 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "Stop before any gold-bar, bundle, booster, or price button purchase confirmation.",
         ),
         gameplay_strategy="match3_solver",
+        validation_status="helper",
+        validation_scope=("solver_unit",),
         notes="Install/onboarding works partially; full play uses the generic match-3 solver.",
         max_tutorial_steps=120,
         max_purchase_steps=45,
@@ -225,6 +243,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "Use the shop tab after the lobby is reachable and stop on any price/billing prompt.",
         ),
         blocker_words=("supercell id", "server", "войти не удалось"),
+        validation_status="starter",
         notes="Generic CV profile; not yet proven on this phone.",
         screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
@@ -242,6 +261,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "Use the shop/store after village access and stop before any price/billing prompt.",
         ),
         blocker_words=("supercell id", "server", "войти не удалось"),
+        validation_status="starter",
         notes="Generic CV profile; not yet proven on this phone.",
         screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
@@ -277,6 +297,14 @@ def game_profile_from_mapping(data: dict) -> GameProfile:
         blocker_words=_tuple_value(data.get("blocker_words") or data.get("blockerWords")),
         gameplay_strategy=strategy,
         proven=_bool_value(data.get("proven")),
+        validation_status=normalize_validation_status(
+            str(data.get("validation_status") or data.get("validationStatus") or ""),
+            proven=_bool_value(data.get("proven")),
+            notes=str(data.get("notes") or ""),
+        ),
+        validation_scope=_tuple_value(data.get("validation_scope") or data.get("validationScope")),
+        validation_runs=_int_value(data.get("validation_runs") or data.get("validationRuns")),
+        last_validated=str(data.get("last_validated") or data.get("lastValidated") or "").strip(),
         notes=str(data.get("notes") or "").strip(),
         max_tutorial_steps=_int_value(data.get("max_tutorial_steps") or data.get("maxTutorialSteps")),
         max_purchase_steps=_int_value(data.get("max_purchase_steps") or data.get("maxPurchaseSteps")),
@@ -345,9 +373,11 @@ def resolve_game_profile(
 def format_profiles_for_cli() -> str:
     lines = ["Available game profiles:"]
     for profile in list_game_profiles():
-        status = "proven" if profile.proven else profile.gameplay_strategy
-        if status == "none":
-            status = "generic-cv"
+        status = profile_maturity(profile)
+        if status == "starter" and profile.gameplay_strategy != "none":
+            status = f"starter/{profile.gameplay_strategy}"
+        elif status == "starter":
+            status = "starter/generic-cv"
         lines.append(
             f"  {profile.id:16} {profile.package:34} {profile.name} [{status}]"
         )

@@ -74,6 +74,37 @@ autopilots/<id>/
 Builder uses LLM as a planner and analyst, not as a realtime player. Runtime
 execution stays local-first or local-only depending on the mode and stage.
 
+## Profile Maturity
+
+Profiles are not all equally proven. The dashboard exposes maturity/readiness:
+
+- `proven` / `validated`: replay/live validation passed in the stated scope.
+- `helper`: a local gameplay helper exists, but it is not a universal bot.
+- `starter`: reusable hints/ROI/blockers that still need validation.
+- `blocked`: validation hit an external login/server/region/account blocker.
+
+Treat `starter`, `helper`, and `blocked` profiles as build inputs, not as
+finished autopilots. A profile should be promoted only after replay validation,
+live validation, and a saved report for the target device, resolution, language,
+and app version.
+
+## Setup And Speed Checks
+
+Before using a new machine:
+
+```bash
+python3 scripts/setup_doctor.py --latency
+```
+
+For reaction-speed decisions:
+
+```bash
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+```
+
+ADB screencap above roughly `180 ms` is a menu/tutorial path, not a fast-gameplay
+path. Use `replay`, `scrcpy`, or `minicap` and keep active gameplay local-only.
+
 ## MCP In Practice
 
 The MCP bridge exposes the same dashboard state. A model can:

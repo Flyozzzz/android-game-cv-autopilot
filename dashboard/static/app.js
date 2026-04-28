@@ -293,7 +293,7 @@ function renderProfiles() {
   table.innerHTML = "";
   state.profiles.forEach((profile) => {
     const tr = document.createElement("tr");
-    const status = profile.source === "custom" ? "custom" : (profile.proven ? "validated" : "builtin");
+    const status = profile.maturity || (profile.proven ? "proven" : "starter");
     tr.innerHTML = `
       <td><strong></strong><br><span></span></td>
       <td></td>
@@ -306,7 +306,7 @@ function renderProfiles() {
     tr.children[0].querySelector("span").textContent = profile.name;
     tr.children[1].textContent = profile.package || "";
     tr.children[2].textContent = profile.gameplay_strategy || "none";
-    tr.children[3].textContent = status;
+    tr.children[3].textContent = profile.source === "custom" ? `${status} · custom` : status;
     tr.children[4].textContent = profile.notes || "";
     const editButton = tr.children[5].querySelector("button");
     editButton.textContent = t("button.edit");

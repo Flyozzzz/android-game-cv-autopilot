@@ -5,13 +5,13 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-358%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-363%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `358 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `363 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
 Subway Surfers local runner smoke passed · Purchases `preview only`
 
@@ -95,6 +95,11 @@ profiles that still need per-device validation.
 | `brawl-stars` | `com.supercell.brawlstars` | Generic CV | Conservative profile with login/server blockers |
 | `clash-royale` | `com.supercell.clashroyale` | Generic CV | Generic, not proven on this phone |
 | `clash-of-clans` | `com.supercell.clashofclans` | Generic CV | Generic, not proven on this phone |
+
+The dashboard and CLI now expose profile readiness separately from profile
+existence. A starter/helper profile is useful for building a route, but it is
+not production-ready until replay and live validation pass on the target
+device, resolution, language, and app version.
 
 ## Safety Model
 
@@ -279,6 +284,30 @@ Subway Surfers smoke result.
 - Appium setup for local Appium-driven runs.
 - Connected Android device or emulator with USB debugging enabled.
 - Optional OpenRouter-compatible Vision key for CV mode.
+
+Run the setup doctor before the first run:
+
+```bash
+python3 scripts/setup_doctor.py --latency
+```
+
+The doctor checks Python, local-first dependencies, ADB, connected devices,
+Docker ADB bridge settings, optional Vision key configuration, and can measure
+ADB screenshot latency. It exits non-zero only on hard failures.
+
+Measure reaction speed directly:
+
+```bash
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+```
+
+Interpreting latency:
+
+| Capture path | Typical use |
+| --- | --- |
+| `<=80 ms` | Local-first menu loops and light realtime helpers |
+| `80-180 ms` | Menus/tutorials; use streaming for action gameplay |
+| `>180 ms` | Too slow for fast gameplay; use `replay`, `scrcpy`, or `minicap` plus local-only runtime |
 
 Install Python dependencies:
 
@@ -891,7 +920,7 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-358 passed, 1 skipped without OPENROUTER_API_KEY
+363 passed, 1 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
@@ -1514,10 +1543,39 @@ stream, если minicap установлен на устройстве.
 готовые PR-блоки, измененные файлы, тесты, coverage gate и реальный smoke на
 Subway Surfers.
 
+### Зрелость Профилей И Скорость
+
+Проект не заявляет, что каждый builtin profile уже универсально проходит любую
+версию игры. Dashboard показывает maturity/readiness отдельно:
+
+| Статус | Что значит |
+| --- | --- |
+| `proven` / `validated` | Прошел replay/live validation в заявленном scope |
+| `helper` | Есть локальный gameplay/helper, но профиль не универсален |
+| `starter` | Стартовый набор hints/ROI/blockers, требует validation |
+| `blocked` | Уперся во внешний blocker: login/server/region/account |
+
+Перед первым запуском проверь окружение:
+
+```bash
+python3 scripts/setup_doctor.py --latency
+```
+
+Проверить скорость реакции ADB capture отдельно:
+
+```bash
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+```
+
+Если `adb_screencap` показывает больше `180 ms`, этот путь подходит для меню и
+tutorial, но не для fast gameplay. Для быстрых игр нужен `FRAME_SOURCE=replay`,
+`scrcpy` или `minicap` и `PERCEPTION_MODE=local_only`.
+
 ### Быстрый Старт
 
 ```bash
 python3 -m pip install -r requirements.txt
+python3 scripts/setup_doctor.py
 python3 -m dashboard.server
 ```
 
@@ -1926,7 +1984,7 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-358 passed, 1 skipped без OPENROUTER_API_KEY
+363 passed, 1 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 и 4 real ADB exploration actions

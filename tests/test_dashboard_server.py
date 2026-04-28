@@ -142,6 +142,8 @@ def test_dashboard_can_save_delete_custom_profile(monkeypatch, tmp_path):
 
     assert saved["path"].endswith("new-game.json")
     assert profile["source"] == "custom"
+    assert profile["maturity"] == "starter"
+    assert profile["production_ready"] is False
     assert profile["settings"]["gamePackage"] == "com.example.newgame"
     assert profile["settings"]["cvTutorialInstructions"] == "skip sign in"
     assert handler._delete_profile({"id": "new-game"})["deleted"] is True

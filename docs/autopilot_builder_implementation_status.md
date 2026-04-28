@@ -77,7 +77,7 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
 
 ## Completed Audit Steps
 
-- Full repository regression: `358 passed, 1 skipped` without
+- Full repository regression: `363 passed, 1 skipped` without
   `OPENROUTER_API_KEY`.
 - Live OpenRouter CV+Builder smoke: passed on `emulator-5554` with
   `xiaomi/mimo-v2.5`; the Builder launched `com.android.settings`, executed

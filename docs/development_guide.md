@@ -65,6 +65,7 @@ flowchart TD
 | --- | --- |
 | Runtime engine | `core/`, `scenarios/` |
 | Builder | `core/autobuilder/` |
+| Profile maturity/readiness | `core/profile_validation.py` |
 | Dashboard API/UI | `dashboard/` |
 | Safe operator data | `dashboard/presets/`, `dashboard/profiles/`, `dashboard/recordings/`, `dashboard/prompts/` |
 | Templates and autopilots | `assets/templates/`, `autopilots/` |
@@ -84,8 +85,19 @@ pip install -r requirements.txt
 Run the dashboard:
 
 ```bash
+python3 scripts/setup_doctor.py
 python3 -m dashboard.server
 ```
+
+Measure local reaction speed when debugging gameplay:
+
+```bash
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+```
+
+ADB screencap can be acceptable for menus/tutorials, but active runner/action
+gameplay should use replay/scrcpy/minicap frame sources and local-only
+providers.
 
 Run the MCP bridge:
 

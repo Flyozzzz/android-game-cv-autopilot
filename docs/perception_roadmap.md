@@ -231,7 +231,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `358 passed, 1 skipped` without `OPENROUTER_API_KEY`
+  - Result: `363 passed, 1 skipped` without `OPENROUTER_API_KEY`
 - Clean requirements venv
   - Command: create a temporary venv, `pip install -r requirements.txt`,
     `pip check`, import `PIL`, `numpy`, `cv2`, `httpx`, and `appium`.

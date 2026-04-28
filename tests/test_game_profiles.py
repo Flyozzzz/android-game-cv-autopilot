@@ -15,6 +15,8 @@ def test_resolves_builtin_profile_by_alias():
     assert profile.name == "My Talking Tom"
     assert profile.package == "com.outfit7.mytalkingtomfree"
     assert profile.proven is True
+    assert profile.validation_status == "proven"
+    assert "tutorial" in profile.validation_scope
 
 
 def test_resolves_builtin_profile_by_package():
@@ -64,6 +66,10 @@ def test_custom_profiles_are_loaded_from_dashboard_directory(monkeypatch, tmp_pa
   "blocker_words": ["maintenance"],
   "gameplay_strategy": "match3_solver",
   "proven": true,
+  "validation_status": "validated",
+  "validation_scope": ["replay", "live"],
+  "validation_runs": 2,
+  "last_validated": "2026-04-28",
   "max_tutorial_steps": 44,
   "max_purchase_steps": 12,
   "screen_zones": {
@@ -82,6 +88,9 @@ def test_custom_profiles_are_loaded_from_dashboard_directory(monkeypatch, tmp_pa
     assert profiles["space-puzzle"].package == "com.example.spacepuzzle"
     assert profile.id == "space-puzzle"
     assert profile.gameplay_strategy == "match3_solver"
+    assert profile.validation_status == "proven"
+    assert profile.validation_runs == 2
+    assert profile.last_validated == "2026-04-28"
     assert profile.max_purchase_steps == 12
     assert profile.screen_zones == {"board": (0.1, 0.2, 0.9, 0.8)}
 

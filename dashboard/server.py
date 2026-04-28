@@ -36,6 +36,7 @@ from core.cv_prompt_templates import (  # noqa: E402
     TUTORIAL_GOAL_TEMPLATE,
 )
 from core.game_profiles import game_profile_from_mapping, list_game_profiles  # noqa: E402
+from core.profile_validation import profile_validation_summary  # noqa: E402
 from dashboard.cv_bridge import (  # noqa: E402
     payload_api_key,
     payload_models,
@@ -795,6 +796,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
         profiles = []
         for profile in list_game_profiles():
             data = asdict(profile)
+            data.update(profile_validation_summary(profile))
             path = _custom_profile_path(profile.id)
             if path.exists():
                 data["source"] = "custom"
