@@ -102,12 +102,17 @@ For reaction-speed decisions:
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 ADB screencap above roughly `180 ms` is a menu/tutorial path, not a fast-gameplay
 path. `adb_raw` may reduce latency by avoiding Android PNG encoding, but if it
 is still above `180 ms`, use `replay`, a validated streaming source, or
 `minicap` and keep active gameplay local-only.
+
+Benchmark matrix reports record device model, Android version, resolution,
+profile id, run count, success count, first break stage, and failure reason.
+Use them before calling a profile proven on a new phone/game version.
 
 ## MCP In Practice
 
@@ -119,9 +124,14 @@ The MCP bridge exposes the same dashboard state. A model can:
 - inspect Vision traces
 - build autopilot bundles
 - run checks
+- run benchmark matrices for profile/device evidence
 
 Use `python3 -m dashboard.mcp_server` and point the client at the local
 dashboard URL with `DASHBOARD_MCP_API_KEY`.
+
+The dashboard is local-first by design. Binding to a non-loopback host is
+rejected when username, password, or MCP API key are weak/default values. Keep
+API keys out of presets; save paths and reports are redacted before persistence.
 
 ## Files You Can Edit From The Dashboard
 

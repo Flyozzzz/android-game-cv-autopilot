@@ -30,6 +30,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import config  # noqa: E402
+from core.autobuilder.redaction import redact_obj  # noqa: E402
 from core.cv_prompt_templates import (  # noqa: E402
     INSTALL_GOAL_TEMPLATE,
     PURCHASE_GOAL_TEMPLATE,
@@ -202,7 +203,12 @@ def _is_loopback_host(host: str) -> bool:
 
 
 def _unsafe_public_secret(value: str) -> bool:
-    return str(value or "").strip().lower() in {"", "admin", "change-me", "changeme", "password"}
+    normalized = str(value or "").strip().lower()
+    return normalized in {"", "admin", "change-me", "changeme", "password"} or len(normalized) < 16
+
+
+def _unsafe_public_username(value: str) -> bool:
+    return str(value or "").strip().lower() in {"", "admin", "root", "user", "test"}
 
 
 def _validate_dashboard_exposure(host: str) -> None:
@@ -210,6 +216,8 @@ def _validate_dashboard_exposure(host: str) -> None:
         return
     if not _dashboard_auth_enabled():
         raise RuntimeError("DASHBOARD_AUTH_ENABLED=0 is not allowed when DASHBOARD_HOST is not loopback")
+    if _unsafe_public_username(_dashboard_username()):
+        raise RuntimeError("Set a non-default DASHBOARD_USERNAME before binding dashboard outside localhost")
     if _unsafe_public_secret(_dashboard_password()):
         raise RuntimeError("Set a strong DASHBOARD_PASSWORD before binding dashboard outside localhost")
     if _unsafe_public_secret(_dashboard_mcp_api_key()):
@@ -903,6 +911,7 @@ class DashboardHandler(BaseHTTPRequestHandler):
             "googleSmsCodeFile",
         ):
             settings.pop(secret, None)
+        settings = redact_obj(settings)
         _settings_to_env(settings)
         return settings
 

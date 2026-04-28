@@ -36,7 +36,7 @@ value in both the dashboard environment and MCP client config for real use.
 Available tool groups:
 
 - State and reports: `dashboard_state`, `tail_run_log`, `latest_report`
-- Runs and tests: `start_safe_run`, `stop_run`, `run_checks`
+- Runs and tests: `start_safe_run`, `stop_run`, `run_checks`, `run_benchmark_matrix`
 - Safe data editing: `list_project_files`, `read_project_file`, `write_project_file`
 - Recordings: `list_recordings`, `read_recording`, `save_recording`, `replay_recording`
 - Constructor: `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset`

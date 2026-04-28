@@ -32,8 +32,11 @@ def _runner(installed: bool = True):
             return subprocess.CompletedProcess(args, 0 if installed else 1, stdout=b"package:/base.apk" if installed else b"", stderr=b"")
         if "dumpsys package" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"versionName=1.2\nversionCode=3", stderr=b"")
-        if "monkey -p" in joined:
-            return subprocess.CompletedProcess(args, 0, stdout=b"Events injected", stderr=b"")
+        if "cmd package resolve-activity --brief" in joined:
+            package = args[-1]
+            return subprocess.CompletedProcess(args, 0, stdout=f"{package}/.Main\n".encode(), stderr=b"")
+        if "am start -n" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=b"Starting", stderr=b"")
         if "dumpsys window windows" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"mCurrentFocus=Window{u0 com.example/.Main}", stderr=b"")
         if "screencap -p" in joined:

@@ -5,13 +5,13 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-371%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-378%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `371 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `378 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
 Subway Surfers local runner smoke passed · Purchases `preview only`
 
@@ -254,6 +254,13 @@ confidence, source, text, screen ID, and latency. `FusionEngine` scores
 candidates with confidence, ROI, text match, provider priority, recency, and
 stale-frame penalties.
 
+The Vision planner is schema-bound before execution. Model output is parsed into
+a strict action schema, normalized through an action whitelist (`tap`, `type`,
+`press`, `swipe`, `wait`, `done`, `fail`), checked against screen bounds and
+required fields, and retried through a bounded JSON repair loop when malformed.
+Invalid plans turn into a safe `wait` result instead of arbitrary coordinates.
+Trace payloads are redacted before they are written to disk.
+
 Profiles now support percent-based `screen_zones`, so the same profile can work
 across 720p, 1080p, 1440p, and different aspect ratios. Templates live under
 `assets/templates/` with registry metadata for thresholds, scales, ROI names,
@@ -302,6 +309,7 @@ Measure reaction speed directly:
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 Interpreting latency:
@@ -323,6 +331,11 @@ Check Android devices:
 ```bash
 adb devices -l
 ```
+
+App launches use Android package resolution plus `am start -n`; the builder no
+longer relies on `monkey -p`. ADB operations in `AppManager` have bounded
+retry/backoff for common race states such as offline/closed/temporary transport
+errors.
 
 If more than one device is connected, set `LOCAL_DEVICE` to the serial shown by
 `adb devices -l`:
@@ -827,7 +840,7 @@ More MCP details are in [dashboard/MCP.md](dashboard/MCP.md).
 | Group | Tools |
 | --- | --- |
 | State and reports | `dashboard_state`, `tail_run_log`, `latest_report` |
-| Runs and tests | `start_safe_run`, `stop_run`, `run_checks` |
+| Runs and tests | `start_safe_run`, `stop_run`, `run_checks`, `run_benchmark_matrix` |
 | Data files | `list_project_files`, `read_project_file`, `write_project_file` |
 | Recordings | `list_recordings`, `read_recording`, `save_recording`, `replay_recording` |
 | Constructor | `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset` |
@@ -923,16 +936,24 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-371 passed, 1 skipped without OPENROUTER_API_KEY
+Full local regression: 378 passed, 3 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
+Benchmark matrix smoke: subway-surfers 1/1 launch+capture run passed on USB device 47d33e1c
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
 Subway Surfers local runner smoke: passed on device 47d33e1c
 Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
+
+The `378 passed` figure is not a claim that every profile has 378 live E2E
+runs. It is the repository regression suite: unit tests, contract tests, mocked
+integration boundaries, static checks, and live smoke tests that skip when a
+Vision key is missing or the connected screen is locked/too flat for template
+matching. Live proof is reported separately through smoke tests, profile
+validation reports, and benchmark-matrix JSON reports.
 
 Run all active tests:
 
@@ -967,6 +988,14 @@ Run the live OpenRouter + Builder smoke on a real frame:
 ```bash
 OPENROUTER_API_KEY=... CV_MODELS=xiaomi/mimo-v2.5 LOCAL_DEVICE=emulator-5554 \
   python3 -m pytest tests/test_live_openrouter_smoke.py -q
+```
+
+Run a release-style device/profile matrix. Use `--runs 20` for evidence you can
+compare between devices, Android versions, resolutions, and app/profile
+versions:
+
+```bash
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 Run the dashboard-equivalent check pipeline:
@@ -1219,6 +1248,7 @@ Common variables:
 | `CV_MODELS` | Comma-separated Vision model fallback list; defaults to `xiaomi/mimo-v2.5` |
 | `CV_MODEL_ATTEMPTS` | Retry count per Vision model for transient empty/null provider responses; defaults to `3` |
 | `CV_MAX_TOKENS` | Vision response token budget; defaults to `4096` so reasoning models can still return final JSON |
+| `CV_JSON_REPAIR_ATTEMPTS` | Bounded repair attempts for malformed Vision planner JSON; defaults to `1` |
 | `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
 | `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, or `minicap`; `adb_raw` avoids Android PNG encoding, `screenrecord` requires host `ffmpeg`, `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
@@ -1537,6 +1567,13 @@ FrameSource.latest_frame()
 использует UIAutomator/templates/detector/cache, а Vision вызывает только при
 низкой confidence. `local_only` подходит для fast gameplay и replay tests.
 
+Vision planner перед выполнением проходит строгую схему. Ответ модели
+разбирается как JSON, нормализуется через whitelist действий (`tap`, `type`,
+`press`, `swipe`, `wait`, `done`, `fail`), проверяется по границам экрана и
+обязательным полям, а malformed JSON получает ограниченный repair retry.
+Невалидный план превращается в безопасный `wait`, а trace перед записью
+проходит redaction секретов, телефонов, email и платежных полей.
+
 `FRAME_SOURCE=adb` использует текущий ADB PNG screenshot путь,
 `FRAME_SOURCE=adb_raw` забирает raw framebuffer без PNG-энкодинга на Android,
 `FRAME_SOURCE=screenrecord` пробует H.264 stream через `adb screenrecord` +
@@ -1574,12 +1611,18 @@ python3 scripts/setup_doctor.py --latency
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 Если `adb_screencap` или `adb_raw_screencap` показывает больше `180 ms`, этот
 путь подходит для меню и tutorial, но не для fast gameplay. Для быстрых игр
 нужен `FRAME_SOURCE=replay`, реально проверенный streaming source или `minicap`
 и `PERCEPTION_MODE=local_only`.
+
+Запуск приложений в Builder/AppManager делается через Android
+`cmd package resolve-activity --brief` и `am start -n`, а не через `monkey -p`.
+ADB-команды AppManager имеют bounded retry/backoff для типичных race-состояний
+transport/device offline/closed/temporary unavailable.
 
 ### Быстрый Старт
 
@@ -1948,7 +1991,7 @@ python3 -m dashboard.mcp_server
 | Группа | Tools |
 | --- | --- |
 | Состояние | `dashboard_state`, `tail_run_log`, `latest_report` |
-| Запуски и тесты | `start_safe_run`, `stop_run`, `run_checks` |
+| Запуски и тесты | `start_safe_run`, `stop_run`, `run_checks`, `run_benchmark_matrix` |
 | Safe data files | `list_project_files`, `read_project_file`, `write_project_file` |
 | Recordings | `list_recordings`, `read_recording`, `save_recording`, `replay_recording` |
 | Конструктор | `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset` |
@@ -1994,16 +2037,24 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-371 passed, 1 skipped без OPENROUTER_API_KEY
+Full local regression: 378 passed, 3 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
+Benchmark matrix smoke: subway-surfers 1/1 launch+capture run passed on USB device 47d33e1c
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
 Subway Surfers local runner smoke: passed on device 47d33e1c
 Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
+
+`378 passed` не означает, что каждый профиль прошел 378 live E2E-прогонов. Это
+repository regression suite: unit tests, contract tests, mocked integration
+boundaries, static checks и live smoke tests, которые уходят в skip без Vision
+key или если подключенный экран заблокирован/слишком плоский для template
+matching. Live-доказательства хранятся отдельно: smoke tests, profile validation
+reports и benchmark-matrix JSON.
 
 Полный прогон:
 
@@ -2032,6 +2083,14 @@ Live smoke OpenRouter + Builder на реальном кадре:
 ```bash
 OPENROUTER_API_KEY=... CV_MODELS=xiaomi/mimo-v2.5 LOCAL_DEVICE=emulator-5554 \
   python3 -m pytest tests/test_live_openrouter_smoke.py -q
+```
+
+Benchmark matrix для устройства/профиля. Для release evidence используй
+`--runs 20`, чтобы видеть success rate по устройству, Android version,
+resolution, игре и профилю:
+
+```bash
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 Проверка через dashboard API:
@@ -2244,6 +2303,7 @@ git push origin beta-0.1.15c
 | `CV_MODELS` | Список Vision models через запятую; по умолчанию `xiaomi/mimo-v2.5` |
 | `CV_MODEL_ATTEMPTS` | Количество retry на одну Vision model при transient empty/null provider response; по умолчанию `3` |
 | `CV_MAX_TOKENS` | Token budget для Vision response; по умолчанию `4096`, чтобы reasoning models успевали вернуть финальный JSON |
+| `CV_JSON_REPAIR_ATTEMPTS` | Количество repair retry для malformed Vision planner JSON; по умолчанию `1` |
 | `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
 | `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `minicap`; `adb_raw` убирает Android PNG encode, `screenrecord` требует `ffmpeg`, `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |

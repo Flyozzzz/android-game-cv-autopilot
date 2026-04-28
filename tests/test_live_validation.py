@@ -11,6 +11,10 @@ def test_live_validation_runs_launch_and_reports_activity():
             return subprocess.CompletedProcess(args, 0, stdout=b"package:/data/app/base.apk\n", stderr=b"")
         if "dumpsys package com.game" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"versionName=1\nversionCode=2 minSdk=23\n", stderr=b"")
+        if "cmd package resolve-activity --brief com.game" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=b"com.game/.Main\n", stderr=b"")
+        if "am start -n com.game/.Main" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=b"Starting: Intent\n", stderr=b"")
         if "dumpsys window windows" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"mCurrentFocus=Window{u0 com.game/.Main}\n", stderr=b"")
         return subprocess.CompletedProcess(args, 0, stdout=b"", stderr=b"")

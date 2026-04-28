@@ -238,7 +238,15 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `371 passed, 1 skipped` without `OPENROUTER_API_KEY`
+  - Result: `378 passed, 3 skipped` without `OPENROUTER_API_KEY`; two live ADB
+    smoke cases skipped because the connected screen was locked/too flat for
+    template matching.
+- Vision planner hardening:
+  - CV action JSON is schema-validated, normalized through an action whitelist,
+    coordinate-checked against the current frame, and optionally repaired once
+    via `CV_JSON_REPAIR_ATTEMPTS`.
+  - Invalid plans produce a safe wait result and trace payloads are redacted
+    before persistence.
 - Clean requirements venv
   - Command: create a temporary venv, `pip install -r requirements.txt`,
     `pip check`, import `PIL`, `numpy`, `cv2`, `httpx`, and `appium`.
@@ -274,6 +282,10 @@ roadmap. Each item must include real code and tests before it is marked done.
   - `AdbScreenrecordFrameSource` did not produce a live decoded frame on
     `47d33e1c` within 10 seconds because this device buffers screenrecord
     output until close. Do not use it for fast gameplay on this phone.
+- Benchmark matrix on `47d33e1c`:
+  - `python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 1 --no-explore`
+  - Result: 1 passed, 0 failed for launch+capture on Android 13, 1080x2400.
+    Release evidence should use `--runs 20` and keep the generated JSON report.
 - Profile live validation on `47d33e1c`:
   - `python3 scripts/profile_live_validator.py --serial 47d33e1c --profile talking-tom --profile subway-surfers --profile candy-crush --profile brawl-stars --output reports/profile_validation --promote validated`
   - Result: 4 passed, 0 failed. Each run launched the app, measured `adb` and

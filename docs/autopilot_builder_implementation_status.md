@@ -9,7 +9,7 @@ the current code and tests.
 | --- | --- | --- | --- | --- |
 | PR15 | GoalSpec / Task Parser / Schemas / Budgets | `core/autobuilder/goal_spec.py`, `task_parser.py`, `schemas.py`, `budgets.py` | `tests/test_goal_spec.py`, `test_task_parser.py`, `test_autobuilder_schemas.py`, `test_autobuilder_budgets.py` | Done |
 | PR16 | SafetyPolicy / PolicyGuard / Redaction | `safety_policy.py`, `policy_guard.py`, `redaction.py` | `tests/test_autobuilder_safety_policy.py`, `test_autobuilder_redaction.py` | Done |
-| PR17 | AppManager | `app_manager.py` | `tests/test_app_manager.py` | Done |
+| PR17 | AppManager | `app_manager.py`, `domain.py` | `tests/test_app_manager.py`, `tests/test_benchmark_matrix.py` | Done |
 | PR18 | ScreenGraph | `screen_graph.py` | `tests/test_screen_graph.py` | Done |
 | PR19 | Explorer + BuildContext | `explorer.py`, `exploration_state.py`, `context.py` | `tests/test_explorer.py`, `test_build_context.py` | Done |
 | PR20 | LLM Screen Analyst | `screen_analyst.py` | `tests/test_screen_analyst.py` | Done |
@@ -38,6 +38,11 @@ the current code and tests.
   rejects them by default unless an explicit review path allows them.
 - LLM screen analysis is structured output only; the analyst never executes an
   action directly.
+- CV planner output is schema-validated, action-whitelisted, coordinate-checked,
+  and sent through a bounded JSON repair loop before execution.
+- App launches use package activity resolution plus `am start -n`; `monkey -p`
+  is not used for Builder launches.
+- AppManager ADB commands use bounded retry/backoff for common transport races.
 - Fast gameplay validation requires `runtime.fast_gameplay == "local_only"`.
 
 ## Latest Focused Test Command
@@ -77,8 +82,13 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
 
 ## Completed Audit Steps
 
-- Full repository regression: `371 passed, 1 skipped` without
-  `OPENROUTER_API_KEY`.
+- Full repository regression: `378 passed, 3 skipped` without
+  `OPENROUTER_API_KEY`; two live ADB smoke cases skipped because the connected
+  screen was locked/too flat for template matching.
+- Benchmark matrix smoke: `subway-surfers` completed `1/1` launch+capture run
+  on USB device `47d33e1c` with Android 13 / 1080x2400. `adb_raw` remained
+  menu/tutorial speed only, so fast gameplay still requires replay or validated
+  streaming/minicap capture.
 - Live OpenRouter CV+Builder smoke: passed on `emulator-5554` with
   `xiaomi/mimo-v2.5`; the Builder launched `com.android.settings`, executed
   four real ADB exploration gestures, saved five replay frames, and recorded

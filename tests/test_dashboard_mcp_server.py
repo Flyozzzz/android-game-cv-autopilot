@@ -35,6 +35,7 @@ def test_mcp_initialize_and_lists_tools():
         "cv_plan_next_action",
         "vision_inspector_state",
         "build_autopilot",
+        "run_benchmark_matrix",
         "save_game_profile",
         "save_preset",
     }
@@ -207,6 +208,29 @@ def test_mcp_tool_calls_route_to_dashboard_http(monkeypatch):
     assert _content_json(mcp_server.call_tool("build_autopilot", {"prompt": "build demo"}))["ok"]
     assert _content_json(mcp_server.call_tool("manual_continue"))["ok"]
     assert calls
+
+
+def test_mcp_can_run_benchmark_matrix(monkeypatch):
+    def fake_matrix(**kwargs):
+        return {
+            "device": {"serial": kwargs["serial"]},
+            "runs_per_profile": kwargs["runs"],
+            "summary": {"profiles": 1, "passed_profiles": 1, "failed_profiles": 0},
+            "rows": [{"profile_id": kwargs["profile_ids"][0], "result": "passed"}],
+        }
+
+    monkeypatch.setattr(mcp_server, "run_benchmark_matrix", fake_matrix)
+
+    result = _content_json(
+        mcp_server.call_tool(
+            "run_benchmark_matrix",
+            {"serial": "emu", "profiles": ["subway-surfers"], "runs": 2, "noExplore": True},
+        )
+    )
+
+    assert result["device"]["serial"] == "emu"
+    assert result["runs_per_profile"] == 2
+    assert result["rows"][0]["profile_id"] == "subway-surfers"
 
 
 def test_mcp_device_screenshot_returns_image(monkeypatch):

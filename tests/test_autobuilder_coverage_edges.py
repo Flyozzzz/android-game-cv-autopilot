@@ -64,7 +64,9 @@ def test_app_manager_edges_and_helpers(tmp_path, monkeypatch):
 
         def __call__(self, args, timeout):
             joined = " ".join(args)
-            if "monkey" in joined:
+            if "cmd package resolve-activity --brief" in joined:
+                return subprocess.CompletedProcess(args, 0, stdout=b"pkg/.Main\n", stderr=b"")
+            if "am start -n" in joined:
                 return subprocess.CompletedProcess(args, self.launch_code, stdout=b"", stderr=b"launch failed")
             if "pm path" in joined:
                 return subprocess.CompletedProcess(args, 1, stdout=b"", stderr=b"")
@@ -243,7 +245,16 @@ def test_profile_roi_scenario_replay_live_and_healing_edges(tmp_path):
     assert run_live_validation({"profile": {"package": "missing"}, "scenario": {}}, runner=lambda a, t: subprocess.CompletedProcess(a, 1, stdout=b"", stderr=b""))["status"] == "failed"
     live_fast = run_live_validation(
         {"profile": {"package": "pkg", "runtime": {}}, "scenario": {"steps": [{"type": "enter_fast_gameplay"}]}},
-        runner=lambda a, t: subprocess.CompletedProcess(a, 0, stdout=b"package:/x\n" if "pm path" in " ".join(a) else b"", stderr=b""),
+        runner=lambda a, t: subprocess.CompletedProcess(
+            a,
+            0,
+            stdout=(
+                b"package:/x\n" if "pm path" in " ".join(a)
+                else b"pkg/.Main\n" if "resolve-activity" in " ".join(a)
+                else b""
+            ),
+            stderr=b"",
+        ),
         policy=SafetyPolicy(),
     )
     assert live_fast["status"] == "failed"
@@ -318,6 +329,10 @@ def test_builder_launch_live_blank_serial_and_helpers(tmp_path, monkeypatch):
             return subprocess.CompletedProcess(args, 0, stdout=b"package:/base.apk\n", stderr=b"")
         if "dumpsys package com.game" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"versionName=1\nversionCode=2 minSdk=23\n", stderr=b"")
+        if "cmd package resolve-activity --brief com.game" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=b"com.game/.Main\n", stderr=b"")
+        if "am start -n com.game/.Main" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=b"Starting\n", stderr=b"")
         if "dumpsys window" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=b"mFocusedApp=AppWindowToken{com.game/.Main}\n", stderr=b"")
         return subprocess.CompletedProcess(args, 0, stdout=b"", stderr=b"")

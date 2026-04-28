@@ -304,7 +304,9 @@ Definition of done:
 Files:
 
 - `core/autobuilder/app_manager.py`
+- `core/autobuilder/domain.py`
 - `tests/test_app_manager.py`
+- `tests/test_benchmark_matrix.py`
 
 Goal:
 
@@ -319,6 +321,7 @@ Functions:
 - `check_installed()`
 - `get_package_info()`
 - `get_current_activity()`
+- `resolve_launch_activity()`
 
 Rules:
 
@@ -326,6 +329,9 @@ Rules:
   trusted internal catalog.
 - Do not download APKs from arbitrary websites.
 - Reset data only on a test device/emulator and only through policy approval.
+- Launches resolve the package launcher activity and use `am start -n`; do not
+  use `monkey -p` for Builder launches.
+- ADB calls use bounded retry/backoff for common transport race conditions.
 
 Definition of done:
 
@@ -337,6 +343,7 @@ Definition of done:
   they may remain disabled in MVP 1 unless the source/device policy explicitly
   allows them.
 - Tests use fake action/ADB runners and verify blocked unsafe operations.
+- Benchmark matrix records device/app validation outcomes across repeated runs.
 
 ## PR 18: ScreenGraph
 
@@ -1019,6 +1026,9 @@ The feature is complete when:
 20. Persisted traces, reports, screenshot metadata, and LLM messages are
     secret-redacted.
 21. Build, exploration, LLM, repair, action, and runtime budgets are enforced.
+22. Profile/device reliability can be measured with a benchmark matrix that
+    records device, Android version, resolution, profile, success count, and
+    break stage across repeated runs.
 
 ## Required Test Discipline
 

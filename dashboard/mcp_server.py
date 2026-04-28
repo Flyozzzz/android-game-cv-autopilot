@@ -17,6 +17,8 @@ from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
+from core.benchmark_matrix import run_benchmark_matrix
+
 
 ROOT = Path(__file__).resolve().parents[1]
 DASHBOARD_URL = os.getenv("DASHBOARD_URL", "http://127.0.0.1:8765").rstrip("/")
@@ -327,6 +329,16 @@ TOOL_DEFS: list[dict[str, Any]] = [
         }, ["prompt"]),
     },
     {
+        "name": "run_benchmark_matrix",
+        "description": "Run profile/device benchmark matrix validation and save a JSON report under reports/benchmark_matrix.",
+        "inputSchema": _schema({
+            "serial": {"type": "string", "description": "Required ADB serial."},
+            "profiles": {"type": "array", "items": {"type": "string"}, "description": "Optional profile ids/packages. Defaults to all profiles."},
+            "runs": {"type": "integer", "minimum": 1, "maximum": 50, "description": "Runs per profile; use 20 for release evidence."},
+            "noExplore": {"type": "boolean", "description": "Only launch/capture; skip safe exploration gestures."},
+        }, ["serial"]),
+    },
+    {
         "name": "manual_continue",
         "description": "Release a manual checkpoint waiting in the automation run.",
         "inputSchema": _schema(),
@@ -544,6 +556,14 @@ def call_tool(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
         return _json_text(_http_json("GET", "/api/builder/state"))
     if name == "build_autopilot":
         return _json_text(_http_json("POST", "/api/builder/build", args))
+    if name == "run_benchmark_matrix":
+        matrix = run_benchmark_matrix(
+            serial=str(args["serial"]),
+            profile_ids=[str(item) for item in args.get("profiles") or []],
+            runs=max(1, min(50, int(args.get("runs") or 20))),
+            explore=not bool(args.get("noExplore", False)),
+        )
+        return _json_text(matrix)
     if name == "manual_continue":
         return _json_text(_http_json("POST", "/api/manual/continue", {}))
     raise RuntimeError(f"Unknown tool: {name}")

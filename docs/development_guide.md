@@ -95,12 +95,24 @@ Measure local reaction speed when debugging gameplay:
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
+python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 ADB screencap can be acceptable for menus/tutorials, but active runner/action
 gameplay should use replay/validated streaming/minicap frame sources and
 local-only providers. `adb_raw` is useful for diagnosis and may be faster than
 PNG screencap, but it is not automatically realtime on every USB device.
+
+App launches in `core/autobuilder/app_manager.py` resolve the launcher activity
+with `cmd package resolve-activity --brief` and execute it with `am start -n`.
+Do not reintroduce `monkey -p` for builder/runtime launches. ADB calls in this
+manager use bounded retry/backoff for common transport races.
+
+Vision planner output in `core/cv_engine.py` is not trusted as free-form text.
+The runtime extracts JSON, validates it against a strict action schema,
+whitelists actions/keys/directions, checks tap/type coordinates against the
+current frame, and optionally performs one bounded JSON repair attempt through
+`CV_JSON_REPAIR_ATTEMPTS`. Invalid plans are converted to safe waits.
 
 Run the MCP bridge:
 
@@ -113,6 +125,11 @@ Run the full test suite:
 ```bash
 python3 -m pytest
 ```
+
+The repository-wide count is a deterministic regression count: unit tests,
+contract tests, mocked integration boundaries, and static checks. Live evidence
+is separate and should be stored as profile validation or benchmark matrix
+reports under `reports/`.
 
 Run focused 100% coverage gates:
 

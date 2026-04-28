@@ -54,6 +54,56 @@ def _normalize_ui_action(action: str) -> str:
     return aliases.get(value, value)
 
 
+def _redact_trace_obj(value: Any) -> Any:
+    if isinstance(value, str):
+        redacted = value
+        for pattern, replacement in (
+            (re.compile(r"sk-or-v1-[A-Za-z0-9_-]+"), "[REDACTED_OPENROUTER_KEY]"),
+            (re.compile(r"(?i)(api[_-]?key|token|password|passwd|secret|cvv)(\s*[:=]\s*)[^\s,'\"}]+"), r"\1\2[REDACTED]"),
+            (re.compile(r"(?i)(card[_-]?number|credit[_-]?card)(\s*[:=]\s*)[0-9 -]{12,}"), r"\1\2[REDACTED]"),
+            (re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}"), "[REDACTED_EMAIL]"),
+            (re.compile(r"\+[0-9][0-9 ()-]{7,}[0-9]"), "[REDACTED_PHONE]"),
+        ):
+            redacted = pattern.sub(replacement, redacted)
+        return redacted
+    if isinstance(value, list):
+        return [_redact_trace_obj(item) for item in value]
+    if isinstance(value, tuple):
+        return [_redact_trace_obj(item) for item in value]
+    if isinstance(value, dict):
+        result = {}
+        for key, item in value.items():
+            key_text = str(key)
+            if re.search(r"(?i)(api[_-]?key|token|password|passwd|secret|cvv|card)", key_text):
+                result[key_text] = "[REDACTED]"
+            else:
+                result[key_text] = _redact_trace_obj(item)
+        return result
+    return value
+
+
+ALLOWED_UI_ACTIONS = {"tap", "type", "press", "swipe", "wait", "done", "fail"}
+ALLOWED_SWIPE_DIRECTIONS = {"up", "down", "left", "right"}
+ALLOWED_PRESS_KEYS = {"enter", "back", "tab", "home"}
+PLAN_JSON_SCHEMA = {
+    "type": "object",
+    "required": ["action", "reason"],
+    "additionalProperties": False,
+    "properties": {
+        "action": {"enum": sorted(ALLOWED_UI_ACTIONS)},
+        "target": {"type": "string"},
+        "text_value_key": {"type": "string"},
+        "text": {"type": "string"},
+        "x": {"type": "integer"},
+        "y": {"type": "integer"},
+        "direction": {"enum": ["", *sorted(ALLOWED_SWIPE_DIRECTIONS)]},
+        "key": {"enum": ["", *sorted(ALLOWED_PRESS_KEYS)]},
+        "wait_seconds": {"type": "number", "minimum": 0, "maximum": 10},
+        "reason": {"type": "string"},
+    },
+}
+
+
 def _draw_sparse_coordinate_grid(image_bytes: bytes) -> bytes:
     """Draw light rulers on the screenshot so Vision models can return better x/y coordinates."""
 
@@ -134,6 +184,69 @@ class UIActionPlan(BaseModel):
     key: str = ""  # enter | back | tab
     wait_seconds: float = 1.0
     reason: str = ""
+
+
+def validate_ui_action_plan_payload(data: Any, *, img_w: int, img_h: int) -> UIActionPlan:
+    if not isinstance(data, dict):
+        raise ValueError("planner response must be a JSON object")
+    allowed_keys = set(PLAN_JSON_SCHEMA["properties"])
+    extra_keys = sorted(set(data) - allowed_keys)
+    if extra_keys:
+        raise ValueError(f"planner response has unsupported fields: {', '.join(extra_keys)}")
+    for key in PLAN_JSON_SCHEMA["required"]:
+        if key not in data:
+            raise ValueError(f"planner response missing required field: {key}")
+    action = _normalize_ui_action(str(data.get("action", "")))
+    if action not in ALLOWED_UI_ACTIONS:
+        raise ValueError(f"unsupported action: {action}")
+    target = str(data.get("target", "") or "")
+    text_value_key = str(data.get("text_value_key", "") or "")
+    text = str(data.get("text", "") or "")
+    direction = str(data.get("direction", "") or "").strip().lower()
+    key = str(data.get("key", "") or "").strip().lower()
+    x = _int_field(data.get("x", 0), "x")
+    y = _int_field(data.get("y", 0), "y")
+    wait_seconds = _float_field(data.get("wait_seconds", 1.0), "wait_seconds")
+    reason = str(data.get("reason", "") or "")
+    if wait_seconds < 0 or wait_seconds > 10:
+        raise ValueError("wait_seconds must be between 0 and 10")
+    if action in {"tap", "type"}:
+        if not target and (x == 0 and y == 0):
+            raise ValueError(f"{action} requires target or x/y coordinates")
+        if not (0 <= x < int(img_w) and 0 <= y < int(img_h)):
+            raise ValueError(f"{action} coordinates out of bounds for {img_w}x{img_h}: {x},{y}")
+    if action == "type" and not (text_value_key or text):
+        raise ValueError("type action requires text_value_key or text")
+    if action == "swipe" and direction not in ALLOWED_SWIPE_DIRECTIONS:
+        raise ValueError("swipe action requires direction up/down/left/right")
+    if action == "press" and key not in ALLOWED_PRESS_KEYS:
+        raise ValueError("press action requires key enter/back/tab/home")
+    return UIActionPlan(
+        action=action,
+        target=target,
+        text_value_key=text_value_key,
+        text=text,
+        x=x,
+        y=y,
+        direction=direction,
+        key=key,
+        wait_seconds=wait_seconds,
+        reason=reason,
+    )
+
+
+def _int_field(value: Any, field: str) -> int:
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} must be an integer")
+
+
+def _float_field(value: Any, field: str) -> float:
+    try:
+        return float(value if value is not None else 0.0)
+    except (TypeError, ValueError):
+        raise ValueError(f"{field} must be a number")
 
 
 class CVEngine:
@@ -283,6 +396,34 @@ class CVEngine:
             except json.JSONDecodeError:
                 pass
         return []
+
+    async def _call_vision_json(
+        self,
+        prompt: str,
+        image_b64: str,
+        *,
+        schema_name: str,
+        validator,
+    ):
+        repair_attempts = max(0, int(getattr(config, "CV_JSON_REPAIR_ATTEMPTS", 1) or 0))
+        current_prompt = prompt
+        last_error = ""
+        for attempt in range(repair_attempts + 1):
+            response_text = await self._call_vision(current_prompt, image_b64)
+            data = self._extract_json_from_text(response_text)
+            try:
+                return validator(data)
+            except Exception as exc:
+                last_error = str(exc)
+                logger.warning(f"Invalid {schema_name} JSON from Vision attempt {attempt + 1}: {last_error}")
+                if attempt >= repair_attempts:
+                    break
+                current_prompt = (
+                    f"{prompt}\n\n"
+                    f"The previous response was invalid for schema {schema_name}: {last_error}\n"
+                    "Return ONLY a corrected JSON object. Do not include markdown, comments, or prose."
+                )
+        raise RuntimeError(f"Vision {schema_name} JSON validation failed: {last_error}")
 
     async def _call_vision(self, prompt: str, image_b64: str) -> str:
         """
@@ -452,6 +593,7 @@ class CVEngine:
                 "prompt": prompt,
                 "response": response,
             }
+            payload = _redact_trace_obj(payload)
             file_path = os.path.join(
                 self.trace_dir,
                 "cv",
@@ -586,10 +728,13 @@ Return ONLY valid JSON:
   "x": 0,
   "y": 0,
   "direction": "up|down|left|right",
-  "key": "enter|back|tab",
+  "key": "enter|back|tab|home",
   "wait_seconds": 1.0,
   "reason": "short reason"
 }}
+
+Strict JSON schema:
+{json.dumps(PLAN_JSON_SCHEMA, ensure_ascii=False)}
 
 Rules:
 - For tap/type on a visible element, include both target and precise x/y center coordinates.
@@ -602,26 +747,21 @@ Rules:
   If the slider handle/drag start is visible, include x/y for the start point.
 - Use "done" only when goal is reached.
 - Use "fail" only if blocked and no safe action exists.
+- Do not invent action names. The only allowed actions are: tap, type, press, swipe, wait, done, fail.
 """
-        response_text = await self._call_vision(prompt, image_b64)
-        data = self._extract_json_from_text(response_text)
-        if not data:
-            return UIActionPlan(action="wait", wait_seconds=1.5, reason="parse_error")
         try:
-            return UIActionPlan(
-                action=_normalize_ui_action(str(data.get("action", "wait"))),
-                target=str(data.get("target", "") or ""),
-                text_value_key=str(data.get("text_value_key", "") or ""),
-                text=str(data.get("text", "") or ""),
-                x=int(data.get("x", 0) or 0),
-                y=int(data.get("y", 0) or 0),
-                direction=str(data.get("direction", "") or "").strip().lower(),
-                key=str(data.get("key", "") or "").strip().lower(),
-                wait_seconds=float(data.get("wait_seconds", 1.0) or 1.0),
-                reason=str(data.get("reason", "") or ""),
+            return await self._call_vision_json(
+                prompt,
+                image_b64,
+                schema_name="ui_action_plan",
+                validator=lambda data: validate_ui_action_plan_payload(
+                    data,
+                    img_w=img_w,
+                    img_h=img_h,
+                ),
             )
-        except Exception:
-            return UIActionPlan(action="wait", wait_seconds=1.5, reason="bad_plan_shape")
+        except Exception as exc:
+            return UIActionPlan(action="wait", wait_seconds=1.5, reason=f"bad_plan_shape:{exc}")
 
     async def find_element(
         self,

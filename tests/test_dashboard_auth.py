@@ -52,23 +52,41 @@ def test_dashboard_public_paths_and_login_contract():
 
 def test_dashboard_rejects_public_bind_with_weak_defaults(monkeypatch):
     monkeypatch.setattr(server.config, "DASHBOARD_AUTH_ENABLED", True)
+    monkeypatch.setattr(server.config, "DASHBOARD_USERNAME", "admin")
     monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "change-me")
     monkeypatch.setattr(server.config, "DASHBOARD_MCP_API_KEY", "change-me")
 
     try:
         server._validate_dashboard_exposure("0.0.0.0")
     except RuntimeError as exc:
-        assert "DASHBOARD_PASSWORD" in str(exc)
+        assert "DASHBOARD_USERNAME" in str(exc)
     else:
         raise AssertionError("public bind with weak secrets must be rejected")
 
 
 def test_dashboard_allows_public_bind_only_with_strong_secrets(monkeypatch):
     monkeypatch.setattr(server.config, "DASHBOARD_AUTH_ENABLED", True)
+    monkeypatch.setattr(server.config, "DASHBOARD_USERNAME", "operator")
     monkeypatch.setattr(server.config, "DASHBOARD_PASSWORD", "local-long-random-password")
     monkeypatch.setattr(server.config, "DASHBOARD_MCP_API_KEY", "local-long-random-mcp-key")
 
     server._validate_dashboard_exposure("0.0.0.0")
+
+
+def test_dashboard_preset_cleaning_redacts_unknown_secret_shapes():
+    handler = object.__new__(server.DashboardHandler)
+    cleaned = handler._clean_preset_settings(
+        {
+            "settings": {
+                "gameProfile": "demo",
+                "nested": {"password": "hunter2"},
+                "notes": "api_key=sk-or-v1-secret",
+            }
+        }
+    )
+
+    assert cleaned["nested"]["password"] == "[REDACTED]"
+    assert "sk-or-v1" not in cleaned["notes"]
 
 
 def test_mcp_requests_include_dashboard_api_key(monkeypatch):
