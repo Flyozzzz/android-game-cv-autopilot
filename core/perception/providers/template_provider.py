@@ -142,6 +142,10 @@ def _best_match_cv2(screen: Image.Image, template: Image.Image) -> TemplateMatch
         import numpy as np  # type: ignore
     except Exception:
         return None
+    # TM_SQDIFF_NORMED is unreliable for flat templates and can return a bogus
+    # zero-confidence match. Let the deterministic PIL matcher handle those.
+    if float(ImageStat.Stat(template.convert("L")).stddev[0]) < 1e-6:
+        return None
     screen_arr = cv2.cvtColor(np.array(screen), cv2.COLOR_RGB2BGR)
     template_arr = cv2.cvtColor(np.array(template), cv2.COLOR_RGB2BGR)
     result = cv2.matchTemplate(screen_arr, template_arr, cv2.TM_SQDIFF_NORMED)

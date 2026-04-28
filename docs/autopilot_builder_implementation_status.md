@@ -77,7 +77,10 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
 
 ## Completed Audit Steps
 
-- Full repository regression: `350 passed`.
+- Full repository regression: `356 passed, 1 skipped` without
+  `OPENROUTER_API_KEY`.
+- Live OpenRouter CV+Builder smoke: passed on `emulator-5554` with
+  `xiaomi/mimo-v2.5`.
 - JSON/static validation: `dashboard/static/i18n.json` parsed successfully,
   `node --check` passed for dashboard JS.
 - Dashboard Builder API/static contract tests: passed.

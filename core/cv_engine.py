@@ -25,6 +25,21 @@ def _safe_snippet(text: str, limit: int = 2000) -> str:
     return str(text)[:limit]
 
 
+def _message_content_text(message: dict[str, Any]) -> str | None:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, dict) and isinstance(item.get("text"), str):
+                parts.append(item["text"])
+            elif isinstance(item, str):
+                parts.append(item)
+        return "\n".join(parts) if parts else None
+    return None
+
+
 def _draw_sparse_coordinate_grid(image_bytes: bytes) -> bytes:
     """Draw light rulers on the screenshot so Vision models can return better x/y coordinates."""
 
@@ -278,107 +293,121 @@ class CVEngine:
         GLOBAL_METRICS.increment("provider_llm_calls")
 
         last_errors: list[str] = []
-        for attempt in range(len(self.models)):
+        attempts_per_model = max(1, int(getattr(config, "CV_MODEL_ATTEMPTS", 2) or 2))
+        for model_slot in range(len(self.models)):
             model = self.current_model
-            logger.debug(f"[CV call #{call_id}] Model: {model}, attempt {attempt + 1}")
+            for retry in range(attempts_per_model):
+                attempt = model_slot * attempts_per_model + retry
+                logger.debug(
+                    f"[CV call #{call_id}] Model: {model}, "
+                    f"attempt {attempt + 1}, retry {retry + 1}/{attempts_per_model}"
+                )
 
-            try:
-                resp = await self.client.post(
-                    f"{config.OPENROUTER_BASE_URL}/chat/completions",
-                    headers={
-                        "Authorization": f"Bearer {self.api_key}",
-                        "Content-Type": "application/json",
-                        "HTTP-Referer": "https://replit.com/@clashbot",
-                        "X-Title": "ClashRoyaleBot",
-                    },
-                    json={
-                        "model": model,
-                        "messages": [
-                            {
-                                "role": "user",
-                                "content": [
-                                    {"type": "text", "text": prompt},
-                                    {
-                                        "type": "image_url",
-                                        "image_url": {
-                                            "url": f"data:image/png;base64,{image_b64}"
+                try:
+                    resp = await self.client.post(
+                        f"{config.OPENROUTER_BASE_URL}/chat/completions",
+                        headers={
+                            "Authorization": f"Bearer {self.api_key}",
+                            "Content-Type": "application/json",
+                            "HTTP-Referer": "https://replit.com/@clashbot",
+                            "X-Title": "ClashRoyaleBot",
+                        },
+                        json={
+                            "model": model,
+                            "messages": [
+                                {
+                                    "role": "user",
+                                    "content": [
+                                        {"type": "text", "text": prompt},
+                                        {
+                                            "type": "image_url",
+                                            "image_url": {
+                                                "url": f"data:image/png;base64,{image_b64}"
+                                            },
                                         },
-                                    },
-                                ],
-                            }
-                        ],
-                        "max_tokens": 2500,
-                        "temperature": 0.1,
-                    },
-                )
-
-                if resp.status_code != 200:
-                    error_message = _safe_snippet(resp.text, 300)
-                    last_errors.append(f"{model}: HTTP {resp.status_code}: {error_message}")
-                    logger.warning(
-                        f"[CV call #{call_id}] HTTP {resp.status_code}: {error_message}"
+                                    ],
+                                }
+                            ],
+                            "max_tokens": 2500,
+                            "temperature": 0.1,
+                        },
                     )
-                    self._rotate_model()
+
+                    if resp.status_code != 200:
+                        error_message = _safe_snippet(resp.text, 300)
+                        last_errors.append(f"{model}: HTTP {resp.status_code}: {error_message}")
+                        logger.warning(
+                            f"[CV call #{call_id}] HTTP {resp.status_code}: {error_message}"
+                        )
+                        if 400 <= resp.status_code < 500:
+                            break
+                        continue
+
+                    data = resp.json()
+
+                    if "error" in data:
+                        last_errors.append(f"{model}: API error: {_safe_snippet(data['error'], 300)}")
+                        logger.warning(f"[CV call #{call_id}] API error: {data['error']}")
+                        break
+
+                    message = data["choices"][0]["message"]
+                    content = _message_content_text(message)
+                    if not content:
+                        last_errors.append(f"{model}: empty content")
+                        logger.warning(f"[CV call #{call_id}] API returned empty content")
+                        self._save_cv_trace(
+                            call_id=call_id,
+                            attempt=attempt + 1,
+                            model=model,
+                            prompt=prompt,
+                            response="",
+                            status_code=resp.status_code,
+                            error="empty content",
+                        )
+                        continue
+                    logger.debug(f"[CV call #{call_id}] Response length: {len(content)}")
+                    self._save_cv_trace(
+                        call_id=call_id,
+                        attempt=attempt + 1,
+                        model=model,
+                        prompt=prompt,
+                        response=content,
+                        status_code=resp.status_code,
+                        error=None,
+                    )
+                    GLOBAL_METRICS.record_latency(
+                        "provider_llm_ms",
+                        (perf_counter() - metric_started) * 1000.0,
+                    )
+                    return content
+
+                except httpx.TimeoutException:
+                    last_errors.append(f"{model}: timeout")
+                    logger.warning(f"[CV call #{call_id}] Timeout with {model}")
+                    self._save_cv_trace(
+                        call_id=call_id,
+                        attempt=attempt + 1,
+                        model=model,
+                        prompt=prompt,
+                        response="",
+                        status_code=None,
+                        error="timeout",
+                    )
                     continue
-
-                data = resp.json()
-
-                if "error" in data:
-                    last_errors.append(f"{model}: API error: {_safe_snippet(data['error'], 300)}")
-                    logger.warning(f"[CV call #{call_id}] API error: {data['error']}")
-                    self._rotate_model()
+                except Exception as e:
+                    last_errors.append(f"{model}: {e}")
+                    logger.error(f"[CV call #{call_id}] Error: {e}")
+                    self._save_cv_trace(
+                        call_id=call_id,
+                        attempt=attempt + 1,
+                        model=model,
+                        prompt=prompt,
+                        response="",
+                        status_code=None,
+                        error=str(e),
+                    )
                     continue
-
-                content = data["choices"][0]["message"]["content"]
-                if content is None:
-                    last_errors.append(f"{model}: null content")
-                    logger.warning(f"[CV call #{call_id}] API returned null content")
-                    self._rotate_model()
-                    continue
-                logger.debug(f"[CV call #{call_id}] Response length: {len(content)}")
-                self._save_cv_trace(
-                    call_id=call_id,
-                    attempt=attempt + 1,
-                    model=model,
-                    prompt=prompt,
-                    response=content,
-                    status_code=resp.status_code,
-                    error=None,
-                )
-                GLOBAL_METRICS.record_latency(
-                    "provider_llm_ms",
-                    (perf_counter() - metric_started) * 1000.0,
-                )
-                return content
-
-            except httpx.TimeoutException:
-                last_errors.append(f"{model}: timeout")
-                logger.warning(f"[CV call #{call_id}] Timeout with {model}")
-                self._save_cv_trace(
-                    call_id=call_id,
-                    attempt=attempt + 1,
-                    model=model,
-                    prompt=prompt,
-                    response="",
-                    status_code=None,
-                    error="timeout",
-                )
-                self._rotate_model()
-                continue
-            except Exception as e:
-                last_errors.append(f"{model}: {e}")
-                logger.error(f"[CV call #{call_id}] Error: {e}")
-                self._save_cv_trace(
-                    call_id=call_id,
-                    attempt=attempt + 1,
-                    model=model,
-                    prompt=prompt,
-                    response="",
-                    status_code=None,
-                    error=str(e),
-                )
-                self._rotate_model()
-                continue
+            self._rotate_model()
 
         suffix = f" Last errors: {' | '.join(last_errors[-3:])}" if last_errors else ""
         GLOBAL_METRICS.record_latency(

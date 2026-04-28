@@ -105,6 +105,64 @@ def test_cv_engine_records_llm_provider_latency():
     assert snapshot["latencies"]["provider_llm_ms"]["count"] == 1
 
 
+def test_cv_engine_retries_empty_openrouter_content(monkeypatch):
+    class FakeResponse:
+        status_code = 200
+        text = "{}"
+
+        def __init__(self, content):
+            self.content = content
+
+        def json(self):
+            return {"choices": [{"message": {"content": self.content}}]}
+
+    class FakeClient:
+        def __init__(self):
+            self.calls = 0
+
+        async def post(self, *args, **kwargs):
+            self.calls += 1
+            return FakeResponse(None if self.calls == 1 else "{\"ok\": true}")
+
+        async def aclose(self):
+            pass
+
+    monkeypatch.setattr("config.CV_MODEL_ATTEMPTS", 2)
+    client = FakeClient()
+    cv = CVEngine(api_key="key", models=["test/model"])
+    cv.client = client
+
+    result = asyncio.run(cv._call_vision("find button", "a" * 120))
+    asyncio.run(cv.close())
+
+    assert result == "{\"ok\": true}"
+    assert client.calls == 2
+
+
+def test_cv_engine_accepts_openrouter_content_parts():
+    class FakeResponse:
+        status_code = 200
+        text = "{}"
+
+        def json(self):
+            return {"choices": [{"message": {"content": [{"text": "{\"ok\":"}, {"text": " true}"}]}}]}
+
+    class FakeClient:
+        async def post(self, *args, **kwargs):
+            return FakeResponse()
+
+        async def aclose(self):
+            pass
+
+    cv = CVEngine(api_key="key", models=["test/model"])
+    cv.client = FakeClient()
+
+    result = asyncio.run(cv._call_vision("find button", "a" * 120))
+    asyncio.run(cv.close())
+
+    assert result == "{\"ok\":\n true}"
+
+
 def test_cv_engine_rejects_missing_api_key_before_http(monkeypatch):
     class FailingClient:
         async def post(self, *args, **kwargs):

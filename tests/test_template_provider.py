@@ -289,8 +289,24 @@ def test_template_matching_cv2_path_can_be_exercised(monkeypatch):
     fake_np = types.SimpleNamespace(array=lambda value: value)
     monkeypatch.setitem(sys.modules, "cv2", fake_cv2)
     monkeypatch.setitem(sys.modules, "numpy", fake_np)
+    template = Image.new("RGB", (5, 6), "white")
+    ImageDraw.Draw(template).point((2, 3), fill="black")
 
-    match = _best_match_cv2(Image.new("RGB", (20, 20)), Image.new("RGB", (5, 6)))
+    match = _best_match_cv2(Image.new("RGB", (20, 20)), template)
 
     assert match.bbox == (3, 4, 8, 10)
     assert match.confidence == 0.75
+
+
+def test_template_matching_flat_template_falls_back_from_cv2(monkeypatch):
+    fake_cv2 = types.SimpleNamespace(
+        COLOR_RGB2BGR=1,
+        TM_SQDIFF_NORMED=2,
+        cvtColor=lambda arr, code: arr,
+        matchTemplate=lambda screen, template, mode: (_ for _ in ()).throw(AssertionError("cv2 must be skipped")),
+        minMaxLoc=lambda result: (0.0, 0.0, (0, 0), (0, 0)),
+    )
+    monkeypatch.setitem(sys.modules, "cv2", fake_cv2)
+    monkeypatch.setitem(sys.modules, "numpy", types.SimpleNamespace(array=lambda value: value))
+
+    assert _best_match_cv2(Image.new("RGB", (20, 20)), Image.new("RGB", (5, 6), "black")) is None

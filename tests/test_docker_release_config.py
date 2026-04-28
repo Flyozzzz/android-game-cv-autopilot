@@ -29,11 +29,22 @@ def test_docker_pipeline_uses_safe_dashboard_defaults():
     assert 'DASHBOARD_MCP_API_KEY: "${DASHBOARD_MCP_API_KEY:-change-me}"' in compose
     assert 'PURCHASE_MODE: "preview"' in compose
     assert 'GOOGLE_PHONE_MODE: "manual"' in compose
+    assert 'CV_MODELS: "${CV_MODELS:-xiaomi/mimo-v2.5}"' in compose
+    assert 'CV_MODEL_ATTEMPTS: "${CV_MODEL_ATTEMPTS:-2}"' in compose
     assert "ADB_SERVER_SOCKET" in compose
     assert "OPENROUTER_API_KEY" in env_example
     assert "DASHBOARD_PASSWORD=change-me" in env_example
     assert "PERCEPTION_MODE=local_first" in env_example
     assert "CV_MODELS=xiaomi/mimo-v2.5" in env_example
+    assert "CV_MODEL_ATTEMPTS=2" in env_example
+
+
+def test_requirements_pin_local_first_image_matching_dependencies():
+    requirements = (ROOT / "requirements.txt").read_text(encoding="utf-8")
+
+    assert "Pillow==10.4.0" in requirements
+    assert "numpy>=2.0,<3" in requirements
+    assert "opencv-python-headless>=4.10,<5" in requirements
 
 
 def test_public_release_ignores_local_sensitive_artifacts():

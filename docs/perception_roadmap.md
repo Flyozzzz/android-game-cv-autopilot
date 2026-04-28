@@ -231,7 +231,20 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `350 passed`
+  - Result: `356 passed, 1 skipped` without `OPENROUTER_API_KEY`
+- Clean requirements venv
+  - Command: create a temporary venv, `pip install -r requirements.txt`,
+    `pip check`, import `PIL`, `numpy`, `cv2`, `httpx`, and `appium`.
+  - Result: passed
+- Live local-first ADB smoke on `emulator-5554`
+  - Command: `LOCAL_DEVICE=emulator-5554 python3 -m pytest tests/test_live_adb_smoke.py -q`
+  - Result: `3 passed`; captured a real frame, matched a real crop through
+    `TemplateProvider`, ran `ElementFinder` in `local_only`, and did not call
+    LLM.
+- Live OpenRouter CV+Builder smoke on `emulator-5554`
+  - Command: `OPENROUTER_API_KEY=... CV_MODELS=xiaomi/mimo-v2.5 LOCAL_DEVICE=emulator-5554 python3 -m pytest tests/test_live_openrouter_smoke.py -q`
+  - Result: passed; planned one real Vision action and generated an
+    Autopilot Builder bundle from the same live frame.
 - `python3 -m pytest tests/test_dashboard_mcp_server.py tests/test_cv_prompt_templates.py tests/test_dashboard_cv_bridge.py tests/test_game_profiles.py --cov=dashboard.mcp_server --cov=core.cv_prompt_templates --cov=dashboard.cv_bridge --cov=core.game_profiles --cov-report=term-missing --cov-fail-under=100 -q`
   - Result: `32 passed`, `100.00%` deterministic constructor/MCP/CV coverage
 - `python3 -m pytest tests/test_config_feature_flags.py tests/test_metrics.py tests/test_input_scheduler.py tests/test_frame_source_replay.py tests/test_default_perception_factory.py tests/test_roi_selector.py tests/test_screen_stability.py tests/test_element_fusion.py tests/test_element_finder_contract.py tests/test_template_provider.py tests/test_uiautomator_provider.py tests/test_screen_state_cache.py tests/test_llm_provider.py tests/test_dashboard_vision_inspector.py tests/test_dashboard_vision_editing.py tests/test_runner_plugin.py tests/test_fast_runner_gameplay.py tests/test_match3_gameplay.py tests/test_match3_scoring.py tests/test_detector_provider.py tests/test_cv_autopilot.py --cov=core.metrics --cov=core.input_scheduler --cov=core.frame_source --cov=core.perception.defaults --cov=core.perception.roi --cov=core.perception.screen_stability --cov=core.perception.element --cov=core.perception.fusion --cov=core.perception.finder --cov=core.perception.template_registry --cov=core.perception.providers.template_provider --cov=core.perception.providers.uiautomator_provider --cov=core.perception.state_cache --cov=core.perception.providers.llm_provider --cov=dashboard.api_vision --cov=core.gameplay.base_plugin --cov=core.gameplay.runner_plugin --cov=core.perception.providers.detector_provider --cov=scenarios.fast_runner_gameplay --cov=scenarios.match3_gameplay --cov=core.cv_autopilot --cov-report=term-missing --cov-fail-under=100 -q`
