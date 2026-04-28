@@ -242,7 +242,7 @@ Implemented rollout flags:
 | Variable | Values | Meaning |
 | --- | --- | --- |
 | `PERCEPTION_MODE` | `local_first` default; also `llm_first`, `shadow`, `local_only` | Controls provider order and fallback behavior |
-| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `minicap` | Selects capture backend; `adb_raw` avoids Android-side PNG encoding, `screenrecord`/`scrcpy` need host `ffmpeg`/`scrcpy`, and `minicap` needs device-side minicap files |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `scrcpy_raw`, `minicap` | Selects capture backend; `scrcpy_raw` is the persistent scrcpy-server H.264 stream for realtime local-only gameplay, `adb_raw` avoids Android-side PNG encoding, `screenrecord`/`scrcpy` need host `ffmpeg`/`scrcpy`, and `minicap` needs device-side minicap files |
 | `ACTION_MODE` | `menu`, `fast` | Chooses safe menu pauses or fast gameplay pauses |
 | `ENABLE_TEMPLATE_PROVIDER` | `true` / `false` | Enables template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | `true` / `false` | Enables native Android text/UI candidates |
@@ -270,9 +270,12 @@ tap offsets, and negative templates.
 resolution, profile ID, and ROI hashes for repeated screens. `ElementFinder`
 uses the cache before providers, so a repeated stable screen can reuse prior
 local/LLM candidates. `ReplayFrameSource` lets perception tests run from saved
-PNG frames with no connected phone. `ScrcpyFrameSource` uses real `scrcpy` plus
-`ffmpeg` frame extraction, and `MinicapFrameSource` reads the minicap socket
-protocol when minicap is installed on the device.
+PNG frames with no connected phone. `ScrcpyRawStreamFrameSource`
+(`FRAME_SOURCE=scrcpy_raw`) starts `scrcpy-server` once, reads raw H.264 through
+an ADB forwarded socket, and decodes it with a persistent host `ffmpeg` process.
+The older `ScrcpyFrameSource` remains as a one-shot record/extract fallback, and
+`MinicapFrameSource` reads the minicap socket protocol when minicap is installed
+on the device.
 
 Fast gameplay uses `RunnerPlugin` and `InputScheduler` instead of the generic
 Vision loop. Runner state includes `STARTING`, `RUNNING`, `JUMPING`, `DUCKING`,
@@ -301,13 +304,15 @@ python3 scripts/setup_doctor.py --latency
 
 The doctor checks Python, local-first dependencies, ADB, connected devices,
 Docker ADB bridge settings, optional Vision key configuration, and can measure
-ADB screenshot latency. It exits non-zero only on hard failures.
+ADB screenshot latency. If `FRAME_SOURCE=scrcpy_raw`, it also verifies host
+`scrcpy` and `ffmpeg`. It exits non-zero only on hard failures.
 
 Measure reaction speed directly:
 
 ```bash
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
@@ -319,6 +324,12 @@ Interpreting latency:
 | `<=80 ms` | Local-first menu loops and light realtime helpers |
 | `80-180 ms` | Menus/tutorials; use streaming for action gameplay |
 | `>180 ms` | Too slow for fast gameplay; use `replay`, a validated streaming source, or `minicap` plus local-only runtime |
+
+Latest live USB evidence on `47d33e1c` (Xiaomi POCO, Android 13, 1080x2400):
+`adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`, and
+`scrcpy_raw_stream avg_ms=28.235` / `p95_ms=39.183` with `--nudge-key 82`.
+For fast gameplay use `FRAME_SOURCE=scrcpy_raw`, `PERCEPTION_MODE=local_only`,
+cheap ROI/template/color providers, and keep Vision out of the active loop.
 
 Install Python dependencies:
 
@@ -1250,7 +1261,7 @@ Common variables:
 | `CV_MAX_TOKENS` | Vision response token budget; defaults to `4096` so reasoning models can still return final JSON |
 | `CV_JSON_REPAIR_ATTEMPTS` | Bounded repair attempts for malformed Vision planner JSON; defaults to `1` |
 | `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
-| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, or `minicap`; `adb_raw` avoids Android PNG encoding, `screenrecord` requires host `ffmpeg`, `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `scrcpy_raw`, or `minicap`; `scrcpy_raw` is the persistent scrcpy-server stream for realtime gameplay, `adb_raw` avoids Android PNG encoding, `screenrecord` requires host `ffmpeg`, `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Enable local template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Enable native Android text/UI candidates |
@@ -1578,7 +1589,9 @@ Vision planner перед выполнением проходит строгую
 `FRAME_SOURCE=adb_raw` забирает raw framebuffer без PNG-энкодинга на Android,
 `FRAME_SOURCE=screenrecord` пробует H.264 stream через `adb screenrecord` +
 host `ffmpeg`, `FRAME_SOURCE=replay` читает сохраненные PNG frames,
-`FRAME_SOURCE=scrcpy` использует host `scrcpy` и `ffmpeg` для получения кадра, а
+`FRAME_SOURCE=scrcpy_raw` держит persistent `scrcpy-server` H.264 stream через
+ADB forward и host `ffmpeg` для realtime local-only gameplay,
+`FRAME_SOURCE=scrcpy` остается one-shot record/extract fallback, а
 `FRAME_SOURCE=minicap` читает minicap socket stream, если minicap установлен на
 устройстве.
 
@@ -1610,14 +1623,17 @@ python3 scripts/setup_doctor.py --latency
 ```bash
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 Если `adb_screencap` или `adb_raw_screencap` показывает больше `180 ms`, этот
 путь подходит для меню и tutorial, но не для fast gameplay. Для быстрых игр
-нужен `FRAME_SOURCE=replay`, реально проверенный streaming source или `minicap`
-и `PERCEPTION_MODE=local_only`.
+нужен `FRAME_SOURCE=scrcpy_raw`, `replay`, реально проверенный `minicap`
+и `PERCEPTION_MODE=local_only`. Последний live benchmark на `47d33e1c`:
+`adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`,
+`scrcpy_raw_stream avg_ms=28.235`, `p95_ms=39.183`.
 
 Запуск приложений в Builder/AppManager делается через Android
 `cmd package resolve-activity --brief` и `am start -n`, а не через `monkey -p`.
@@ -2305,7 +2321,7 @@ git push origin beta-0.1.15c
 | `CV_MAX_TOKENS` | Token budget для Vision response; по умолчанию `4096`, чтобы reasoning models успевали вернуть финальный JSON |
 | `CV_JSON_REPAIR_ATTEMPTS` | Количество repair retry для malformed Vision planner JSON; по умолчанию `1` |
 | `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
-| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `minicap`; `adb_raw` убирает Android PNG encode, `screenrecord` требует `ffmpeg`, `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `scrcpy_raw`, `minicap`; `scrcpy_raw` это persistent scrcpy-server stream для realtime gameplay, `adb_raw` убирает Android PNG encode, `screenrecord` требует `ffmpeg`, `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Включить template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Включить Android text/UI candidates |

@@ -12,6 +12,13 @@ def _reload_config(monkeypatch, **env):
         "ENABLE_DETECTOR_PROVIDER",
         "DETECTOR_MODEL_PATH",
         "DETECTOR_CONFIDENCE_THRESHOLD",
+        "SCRCPY_SERVER_PATH",
+        "SCRCPY_SERVER_VERSION",
+        "SCRCPY_RAW_MAX_SIZE",
+        "SCRCPY_RAW_MAX_FPS",
+        "SCRCPY_RAW_BIT_RATE",
+        "SCRCPY_RAW_PORT",
+        "SCRCPY_RAW_FRAME_WAIT_TIMEOUT",
         "CV_MODELS",
     )
     for key in keys:
@@ -36,6 +43,13 @@ def test_perception_feature_flags_default_to_safe_rollout_values(monkeypatch):
     assert cfg.ENABLE_DETECTOR_PROVIDER is False
     assert cfg.DETECTOR_MODEL_PATH == ""
     assert cfg.DETECTOR_CONFIDENCE_THRESHOLD == 0.50
+    assert cfg.SCRCPY_SERVER_PATH == ""
+    assert cfg.SCRCPY_SERVER_VERSION == ""
+    assert cfg.SCRCPY_RAW_MAX_SIZE == 720
+    assert cfg.SCRCPY_RAW_MAX_FPS == 30
+    assert cfg.SCRCPY_RAW_BIT_RATE == "2M"
+    assert cfg.SCRCPY_RAW_PORT == 0
+    assert cfg.SCRCPY_RAW_FRAME_WAIT_TIMEOUT == 3.0
     assert cfg.CV_MODELS == ["xiaomi/mimo-v2.5"]
 
 
@@ -43,7 +57,7 @@ def test_perception_feature_flags_accept_supported_values(monkeypatch):
     cfg = _reload_config(
         monkeypatch,
         PERCEPTION_MODE="shadow",
-        FRAME_SOURCE="replay",
+        FRAME_SOURCE="scrcpy_raw",
         ACTION_MODE="fast",
         ENABLE_TEMPLATE_PROVIDER="0",
         ENABLE_UIAUTOMATOR_PROVIDER="false",
@@ -51,10 +65,17 @@ def test_perception_feature_flags_accept_supported_values(monkeypatch):
         ENABLE_DETECTOR_PROVIDER="yes",
         DETECTOR_MODEL_PATH="/tmp/detector.onnx",
         DETECTOR_CONFIDENCE_THRESHOLD="0.72",
+        SCRCPY_SERVER_PATH="/tmp/scrcpy-server",
+        SCRCPY_SERVER_VERSION="3.3.4",
+        SCRCPY_RAW_MAX_SIZE="1080",
+        SCRCPY_RAW_MAX_FPS="60",
+        SCRCPY_RAW_BIT_RATE="4M",
+        SCRCPY_RAW_PORT="27183",
+        SCRCPY_RAW_FRAME_WAIT_TIMEOUT="2.5",
     )
 
     assert cfg.PERCEPTION_MODE == "shadow"
-    assert cfg.FRAME_SOURCE == "replay"
+    assert cfg.FRAME_SOURCE == "scrcpy_raw"
     assert cfg.ACTION_MODE == "fast"
     assert cfg.ENABLE_TEMPLATE_PROVIDER is False
     assert cfg.ENABLE_UIAUTOMATOR_PROVIDER is False
@@ -62,6 +83,13 @@ def test_perception_feature_flags_accept_supported_values(monkeypatch):
     assert cfg.ENABLE_DETECTOR_PROVIDER is True
     assert cfg.DETECTOR_MODEL_PATH == "/tmp/detector.onnx"
     assert cfg.DETECTOR_CONFIDENCE_THRESHOLD == 0.72
+    assert cfg.SCRCPY_SERVER_PATH == "/tmp/scrcpy-server"
+    assert cfg.SCRCPY_SERVER_VERSION == "3.3.4"
+    assert cfg.SCRCPY_RAW_MAX_SIZE == 1080
+    assert cfg.SCRCPY_RAW_MAX_FPS == 60
+    assert cfg.SCRCPY_RAW_BIT_RATE == "4M"
+    assert cfg.SCRCPY_RAW_PORT == 27183
+    assert cfg.SCRCPY_RAW_FRAME_WAIT_TIMEOUT == 2.5
 
 
 def test_perception_feature_flags_fall_back_on_unknown_choices(monkeypatch):

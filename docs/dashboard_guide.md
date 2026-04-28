@@ -101,14 +101,16 @@ For reaction-speed decisions:
 ```bash
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 ADB screencap above roughly `180 ms` is a menu/tutorial path, not a fast-gameplay
 path. `adb_raw` may reduce latency by avoiding Android PNG encoding, but if it
-is still above `180 ms`, use `replay`, a validated streaming source, or
-`minicap` and keep active gameplay local-only.
+is still above `180 ms`, use `FRAME_SOURCE=scrcpy_raw`, `replay`, or validated
+`minicap` and keep active gameplay local-only. On USB device `47d33e1c`, the
+latest measured `scrcpy_raw_stream` result is `avg_ms=28.235`, `p95_ms=39.183`.
 
 Benchmark matrix reports record device model, Android version, resolution,
 profile id, run count, success count, first break stage, and failure reason.

@@ -78,9 +78,16 @@ PERCEPTION_MODE = _env_choice(
 FRAME_SOURCE = _env_choice(
     "FRAME_SOURCE",
     "adb",
-    ("adb", "adb_raw", "screenrecord", "replay", "scrcpy", "minicap"),
+    ("adb", "adb_raw", "screenrecord", "replay", "scrcpy", "scrcpy_raw", "minicap"),
 )
 FRAME_SOURCE_INCLUDE_PNG = _env_bool("FRAME_SOURCE_INCLUDE_PNG", "1")
+SCRCPY_SERVER_PATH = os.getenv("SCRCPY_SERVER_PATH", "").strip()
+SCRCPY_SERVER_VERSION = os.getenv("SCRCPY_SERVER_VERSION", "").strip()
+SCRCPY_RAW_MAX_SIZE = int(os.getenv("SCRCPY_RAW_MAX_SIZE", "720"))
+SCRCPY_RAW_MAX_FPS = int(os.getenv("SCRCPY_RAW_MAX_FPS", "30"))
+SCRCPY_RAW_BIT_RATE = os.getenv("SCRCPY_RAW_BIT_RATE", "2M").strip() or "2M"
+SCRCPY_RAW_PORT = int(os.getenv("SCRCPY_RAW_PORT", "0"))
+SCRCPY_RAW_FRAME_WAIT_TIMEOUT = float(os.getenv("SCRCPY_RAW_FRAME_WAIT_TIMEOUT", "3.0"))
 ACTION_MODE = _env_choice(
     "ACTION_MODE",
     "menu",

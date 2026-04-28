@@ -15,15 +15,19 @@ from core.frame_source import (
     MinicapFrameSource,
     ReplayFrameSource,
     ScrcpyFrameSource,
+    ScrcpyRawStreamFrameSource,
     create_frame_source,
+    find_scrcpy_server_path,
     frame_to_image,
     png_dimensions,
     raw_screencap_to_rgb,
     rgb_to_png,
     timestamp_ms,
+    _detect_scrcpy_version,
     _pop_complete_jpegs,
     _read_minicap_banner,
     _recv_exact,
+    _scrcpy_bit_rate_to_bps,
 )
 
 
@@ -220,6 +224,9 @@ def test_create_frame_source_factory_and_invalid_png(monkeypatch, tmp_path):
     monkeypatch.setattr(config, "FRAME_SOURCE", "scrcpy")
     assert isinstance(create_frame_source(), ScrcpyFrameSource)
 
+    monkeypatch.setattr(config, "FRAME_SOURCE", "scrcpy_raw")
+    assert isinstance(create_frame_source(), ScrcpyRawStreamFrameSource)
+
     monkeypatch.setattr(config, "FRAME_SOURCE", "minicap")
     assert isinstance(create_frame_source(), MinicapFrameSource)
 
@@ -317,6 +324,64 @@ def test_scrcpy_frame_source_reports_missing_binary(tmp_path):
 
     with pytest.raises(RuntimeError, match="scrcpy binary not found"):
         asyncio.run(source.latest_frame())
+
+
+def test_scrcpy_raw_stream_builds_server_command_and_helpers(tmp_path):
+    server = tmp_path / "scrcpy-server"
+    server.write_text("server", encoding="utf-8")
+
+    def version_runner(cmd, stdout=None, stderr=None, timeout=None):
+        return subprocess.CompletedProcess(cmd, 0, stdout=b"scrcpy 3.3.4\n", stderr=b"")
+
+    assert find_scrcpy_server_path(explicit_path=str(server), runner=version_runner) == str(server)
+    assert _detect_scrcpy_version("scrcpy", runner=version_runner) == "3.3.4"
+    assert _scrcpy_bit_rate_to_bps("2M") == "2000000"
+    assert _scrcpy_bit_rate_to_bps("750k") == "750000"
+
+    source = ScrcpyRawStreamFrameSource(
+        serial="emu",
+        adb_path="adb-test",
+        ffmpeg_path="ffmpeg-test",
+        server_path=str(server),
+        server_version="3.3.4",
+        max_size=720,
+        max_fps=30,
+        bit_rate="2M",
+        port=12345,
+    )
+    cmd = source._server_cmd("3.3.4")
+
+    assert cmd[:3] == ["adb-test", "-s", "emu"]
+    assert "app_process" in cmd
+    assert "raw_stream=true" in cmd
+    assert "video_bit_rate=2000000" in cmd
+    assert "max_size=720" in cmd
+    assert "max_fps=30" in cmd
+
+
+def test_scrcpy_raw_stream_uses_latest_decoded_jpeg_without_waiting(tmp_path):
+    server = tmp_path / "scrcpy-server"
+    server.write_text("server", encoding="utf-8")
+    source = ScrcpyRawStreamFrameSource(
+        server_path=str(server),
+        include_png=False,
+        frame_wait_timeout=0.1,
+    )
+    source._latest_jpeg = _jpeg(7, 9, "green")
+    source._latest_timestamp_ms = 123
+    source._ensure_started = lambda: None
+
+    frame = asyncio.run(source.latest_frame())
+
+    assert frame.source_name == "scrcpy_raw"
+    assert (frame.timestamp_ms, frame.width, frame.height) == (123, 7, 9)
+    assert frame.png_bytes is None
+    assert frame.rgb_or_bgr_array is not None
+
+
+def test_scrcpy_raw_stream_missing_server_path_errors(tmp_path):
+    with pytest.raises(RuntimeError, match="scrcpy-server not found"):
+        find_scrcpy_server_path(explicit_path=str(tmp_path / "missing-server"))
 
 
 def test_minicap_frame_source_reads_socket_protocol(monkeypatch, tmp_path):

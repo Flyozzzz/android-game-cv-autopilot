@@ -94,14 +94,18 @@ Measure local reaction speed when debugging gameplay:
 ```bash
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
 python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82
 python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 python3 scripts/benchmark_matrix.py --serial 47d33e1c --profile subway-surfers --runs 20
 ```
 
 ADB screencap can be acceptable for menus/tutorials, but active runner/action
-gameplay should use replay/validated streaming/minicap frame sources and
-local-only providers. `adb_raw` is useful for diagnosis and may be faster than
-PNG screencap, but it is not automatically realtime on every USB device.
+gameplay should use `FRAME_SOURCE=scrcpy_raw`, replay, or validated minicap
+frame sources with local-only providers. `adb_raw` is useful for diagnosis and
+may be faster than PNG screencap, but it is not automatically realtime on every
+USB device. On USB device `47d33e1c`, the latest measured values were
+`adb_screencap avg_ms=617.144`, `adb_raw_screencap avg_ms=841.762`, and
+`scrcpy_raw_stream avg_ms=28.235` / `p95_ms=39.183`.
 
 App launches in `core/autobuilder/app_manager.py` resolve the launcher activity
 with `cmd package resolve-activity --brief` and execute it with `am start -n`.

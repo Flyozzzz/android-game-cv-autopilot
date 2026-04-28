@@ -5,6 +5,7 @@ import asyncio
 from dataclasses import dataclass
 import os
 from pathlib import Path
+import re
 import shutil
 import socket
 import struct
@@ -436,6 +437,324 @@ class AdbScreenrecordFrameSource(FrameSource):
             pass
 
 
+class ScrcpyRawStreamFrameSource(FrameSource):
+    """Persistent scrcpy-server raw H.264 stream decoded locally with ffmpeg.
+
+    Unlike :class:`ScrcpyFrameSource`, this source does not record a short mp4
+    for every frame. It starts scrcpy-server once, forwards its raw H.264 socket
+    to the host, decodes the stream through a persistent ffmpeg process, and
+    returns the latest decoded frame from memory.
+    """
+
+    def __init__(
+        self,
+        *,
+        serial: str = "",
+        adb_path: str | None = None,
+        scrcpy_path: str | None = None,
+        ffmpeg_path: str | None = None,
+        server_path: str | None = None,
+        server_version: str | None = None,
+        max_size: int = 720,
+        max_fps: int = 30,
+        bit_rate: str = "2M",
+        port: int = 0,
+        include_png: bool = True,
+        frame_wait_timeout: float = 3.0,
+        popen_factory: Any | None = None,
+        runner: Any | None = None,
+        socket_factory: Any | None = None,
+    ):
+        self.serial = serial
+        self.adb_path = adb_path or shutil.which("adb") or "adb"
+        self.scrcpy_path = scrcpy_path or shutil.which("scrcpy") or "scrcpy"
+        self.ffmpeg_path = ffmpeg_path or shutil.which("ffmpeg") or "ffmpeg"
+        self.server_path = str(server_path or "").strip()
+        self.server_version = str(server_version or "").strip()
+        self.max_size = max(0, int(max_size or 0))
+        self.max_fps = max(0, int(max_fps or 0))
+        self.bit_rate = str(bit_rate or "2M")
+        self.port = max(0, int(port or 0))
+        self.include_png = bool(include_png)
+        self.frame_wait_timeout = max(0.1, float(frame_wait_timeout or 3.0))
+        self.popen_factory = popen_factory or subprocess.Popen
+        self.runner = runner or subprocess.run
+        self.socket_factory = socket_factory or socket.create_connection
+        self._device_server_path = "/data/local/tmp/scrcpy-server-autopilot.jar"
+        self._server_proc: subprocess.Popen | None = None
+        self._ffmpeg_proc: subprocess.Popen | None = None
+        self._socket: socket.socket | None = None
+        self._pump_thread: threading.Thread | None = None
+        self._reader_thread: threading.Thread | None = None
+        self._lock = threading.Lock()
+        self._frame_event = threading.Event()
+        self._latest_jpeg: bytes | None = None
+        self._latest_timestamp_ms = 0
+
+    async def latest_frame(self) -> Frame:
+        started = time.perf_counter()
+        await asyncio.to_thread(self._ensure_started)
+        if self._latest_jpeg is None and not await asyncio.to_thread(self._frame_event.wait, self.frame_wait_timeout):
+            raise RuntimeError(self._no_frame_error())
+        with self._lock:
+            jpeg = self._latest_jpeg
+            ts = self._latest_timestamp_ms or timestamp_ms()
+        if not jpeg:
+            raise RuntimeError("scrcpy raw stream frame is empty")
+        width, height, rgb = _jpeg_to_rgb(jpeg)
+        png = rgb_to_png(width, height, rgb) if self.include_png else None
+        latency_ms = (time.perf_counter() - started) * 1000.0
+        return Frame(
+            timestamp_ms=ts,
+            width=width,
+            height=height,
+            rgb_or_bgr_array=rgb,
+            png_bytes=png,
+            source_name="scrcpy_raw",
+            latency_ms=round(latency_ms, 3),
+        )
+
+    def close(self) -> None:
+        if self._socket is not None:
+            try:
+                self._socket.close()
+            except Exception:
+                pass
+            self._socket = None
+        for proc in (self._ffmpeg_proc, self._server_proc):
+            if proc is None:
+                continue
+            try:
+                proc.terminate()
+            except Exception:
+                pass
+            try:
+                proc.wait(timeout=1)
+            except Exception:
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+        self._ffmpeg_proc = None
+        self._server_proc = None
+        if self.port:
+            try:
+                self._run_checked(self._adb_cmd("forward", "--remove", f"tcp:{self.port}"), timeout=3)
+            except Exception:
+                pass
+
+    def _ensure_started(self) -> None:
+        if self._is_running():
+            return
+        self.close()
+        _require_binary(self.adb_path, "adb")
+        _require_binary(self.ffmpeg_path, "ffmpeg")
+        server_path = find_scrcpy_server_path(
+            explicit_path=self.server_path,
+            scrcpy_path=self.scrcpy_path,
+            runner=self.runner,
+        )
+        version = self.server_version or _detect_scrcpy_version(self.scrcpy_path, runner=self.runner) or "3.3.4"
+        self._run_checked(self._adb_cmd("push", server_path, self._device_server_path), timeout=15)
+        if not self.port:
+            self.port = _find_free_tcp_port()
+        self._run_checked(self._adb_cmd("forward", f"tcp:{self.port}", "localabstract:scrcpy"), timeout=5)
+        self._server_proc = self.popen_factory(
+            self._server_cmd(version),
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        time.sleep(0.5)
+        self._socket = self._connect_stream_socket()
+        self._ffmpeg_proc = self.popen_factory(
+            self._ffmpeg_cmd(),
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+        self._frame_event.clear()
+        self._pump_thread = threading.Thread(target=self._pump_socket_to_ffmpeg, daemon=True)
+        self._reader_thread = threading.Thread(target=self._read_ffmpeg_jpegs, daemon=True)
+        self._pump_thread.start()
+        self._reader_thread.start()
+
+    def _is_running(self) -> bool:
+        return (
+            self._server_proc is not None
+            and self._ffmpeg_proc is not None
+            and self._server_proc.poll() is None
+            and self._ffmpeg_proc.poll() is None
+            and self._socket is not None
+        )
+
+    def _connect_stream_socket(self) -> socket.socket:
+        deadline = time.monotonic() + 3.0
+        last_error: Exception | None = None
+        while time.monotonic() < deadline:
+            if self._server_proc is not None and self._server_proc.poll() is not None:
+                raise RuntimeError(self._process_error(self._server_proc, "scrcpy-server exited before socket connection"))
+            try:
+                sock = self.socket_factory(("127.0.0.1", self.port), timeout=1.0)
+                try:
+                    sock.settimeout(None)
+                except Exception:
+                    pass
+                return sock
+            except Exception as exc:
+                last_error = exc
+                time.sleep(0.05)
+        raise RuntimeError(f"Could not connect to scrcpy raw socket: {last_error}")
+
+    def _pump_socket_to_ffmpeg(self) -> None:
+        ffmpeg_stdin = self._ffmpeg_proc.stdin if self._ffmpeg_proc else None
+        if ffmpeg_stdin is None:
+            return
+        saw_bytes = False
+        # Some devices close a newly connected scrcpy raw socket if the host
+        # reads before the video encoder has emitted its first packet.
+        time.sleep(1.0)
+        first_byte_deadline = time.monotonic() + self.frame_wait_timeout
+        try:
+            while True:
+                sock = self._socket
+                if sock is None:
+                    if not saw_bytes and time.monotonic() < first_byte_deadline:
+                        time.sleep(0.25)
+                        self._socket = self._connect_stream_socket()
+                        continue
+                    break
+                try:
+                    chunk = sock.recv(65536)
+                except Exception:
+                    if not saw_bytes and time.monotonic() < first_byte_deadline:
+                        try:
+                            sock.close()
+                        except Exception:
+                            pass
+                        self._socket = None
+                        time.sleep(0.25)
+                        continue
+                    break
+                if not chunk:
+                    if not saw_bytes and time.monotonic() < first_byte_deadline and self._server_proc is not None and self._server_proc.poll() is None:
+                        try:
+                            sock.close()
+                        except Exception:
+                            pass
+                        self._socket = None
+                        time.sleep(0.25)
+                        continue
+                    break
+                saw_bytes = True
+                os.write(ffmpeg_stdin.fileno(), chunk)
+        except Exception:
+            pass
+        try:
+            ffmpeg_stdin.close()
+        except Exception:
+            pass
+
+    def _read_ffmpeg_jpegs(self) -> None:
+        stdout = self._ffmpeg_proc.stdout if self._ffmpeg_proc else None
+        if stdout is None:
+            return
+        buffer = bytearray()
+        try:
+            while True:
+                chunk = os.read(stdout.fileno(), 32768)
+                if not chunk:
+                    break
+                buffer.extend(chunk)
+                for jpeg in _pop_complete_jpegs(buffer):
+                    with self._lock:
+                        self._latest_jpeg = jpeg
+                        self._latest_timestamp_ms = timestamp_ms()
+                    self._frame_event.set()
+        except Exception:
+            pass
+
+    def _server_cmd(self, version: str) -> list[str]:
+        args = [
+            f"CLASSPATH={self._device_server_path}",
+            "app_process",
+            "/",
+            "com.genymobile.scrcpy.Server",
+            version,
+            "tunnel_forward=true",
+            "audio=false",
+            "control=false",
+            "cleanup=false",
+            "raw_stream=true",
+            f"video_bit_rate={_scrcpy_bit_rate_to_bps(self.bit_rate)}",
+            "log_level=info",
+        ]
+        if self.max_size:
+            args.append(f"max_size={self.max_size}")
+        if self.max_fps:
+            args.append(f"max_fps={self.max_fps}")
+        return self._adb_cmd("shell", *args)
+
+    def _ffmpeg_cmd(self) -> list[str]:
+        return [
+            self.ffmpeg_path,
+            "-loglevel",
+            "error",
+            "-probesize",
+            "32",
+            "-analyzeduration",
+            "0",
+            "-f",
+            "h264",
+            "-i",
+            "pipe:0",
+            "-f",
+            "image2pipe",
+            "-vcodec",
+            "mjpeg",
+            "-q:v",
+            "5",
+            "pipe:1",
+        ]
+
+    def _adb_cmd(self, *args: object) -> list[str]:
+        cmd = [self.adb_path]
+        if self.serial:
+            cmd += ["-s", self.serial]
+        cmd += [str(arg) for arg in args]
+        return cmd
+
+    def _run_checked(self, cmd: list[str], *, timeout: int) -> subprocess.CompletedProcess:
+        proc = self.runner(
+            cmd,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=timeout,
+        )
+        if proc.returncode != 0:
+            stderr = proc.stderr.decode(errors="ignore").strip()
+            raise RuntimeError(stderr or f"Command failed: {' '.join(cmd)}")
+        return proc
+
+    def _no_frame_error(self) -> str:
+        for proc, label in ((self._server_proc, "scrcpy-server"), (self._ffmpeg_proc, "ffmpeg")):
+            if proc is not None and proc.poll() is not None:
+                return self._process_error(proc, f"{label} exited before producing a frame")
+        return (
+            "scrcpy raw stream did not produce a frame. "
+            "On a static Android screen, force a small screen change or benchmark with --nudge-key."
+        )
+
+    def _process_error(self, proc: subprocess.Popen, fallback: str) -> str:
+        stderr = b""
+        try:
+            if proc.stderr is not None:
+                stderr = proc.stderr.read() or b""
+        except Exception:
+            stderr = b""
+        message = stderr.decode(errors="ignore").strip()
+        return f"{fallback}: {message}" if message else fallback
+
+
 class MinicapFrameSource(FrameSource):
     """Read JPEG frames from an Android minicap localabstract socket.
 
@@ -585,6 +904,18 @@ def create_frame_source(
         return ReplayFrameSource(replay_paths or ())
     if source == "scrcpy":
         return ScrcpyFrameSource(serial=serial)
+    if source == "scrcpy_raw":
+        return ScrcpyRawStreamFrameSource(
+            serial=serial,
+            include_png=bool(getattr(config, "FRAME_SOURCE_INCLUDE_PNG", True)),
+            server_path=getattr(config, "SCRCPY_SERVER_PATH", ""),
+            server_version=getattr(config, "SCRCPY_SERVER_VERSION", ""),
+            max_size=int(getattr(config, "SCRCPY_RAW_MAX_SIZE", 720)),
+            max_fps=int(getattr(config, "SCRCPY_RAW_MAX_FPS", 30)),
+            bit_rate=getattr(config, "SCRCPY_RAW_BIT_RATE", "2M"),
+            port=int(getattr(config, "SCRCPY_RAW_PORT", 0)),
+            frame_wait_timeout=float(getattr(config, "SCRCPY_RAW_FRAME_WAIT_TIMEOUT", 3.0)),
+        )
     if source == "minicap":
         return MinicapFrameSource(serial=serial)
     raise RuntimeError(f"Unsupported FRAME_SOURCE={source!r}")
@@ -658,6 +989,78 @@ def _require_binary(path: str, label: str) -> None:
     if Path(path).is_file() or shutil.which(path):
         return
     raise RuntimeError(f"{label} binary not found: {path}")
+
+
+def _scrcpy_bit_rate_to_bps(value: str) -> str:
+    raw = str(value or "").strip().lower()
+    if not raw:
+        return "2000000"
+    match = re.fullmatch(r"(\d+(?:\.\d+)?)([kmg]?)", raw)
+    if not match:
+        return raw
+    amount = float(match.group(1))
+    suffix = match.group(2)
+    multiplier = {"": 1, "k": 1_000, "m": 1_000_000, "g": 1_000_000_000}[suffix]
+    return str(int(amount * multiplier))
+
+
+def find_scrcpy_server_path(
+    *,
+    explicit_path: str = "",
+    scrcpy_path: str = "scrcpy",
+    runner: Any | None = None,
+) -> str:
+    explicit = str(explicit_path or os.getenv("SCRCPY_SERVER_PATH", "")).strip()
+    if explicit:
+        path = Path(explicit).expanduser()
+        if path.is_file():
+            return str(path)
+        raise RuntimeError(f"scrcpy-server not found: {path}")
+    version = _detect_scrcpy_version(scrcpy_path, runner=runner)
+    candidates = [
+        Path("/opt/homebrew/share/scrcpy/scrcpy-server"),
+        Path("/usr/local/share/scrcpy/scrcpy-server"),
+        Path("/usr/share/scrcpy/scrcpy-server"),
+    ]
+    if version:
+        candidates[:0] = [
+            Path(f"/opt/homebrew/Cellar/scrcpy/{version}/share/scrcpy/scrcpy-server"),
+            Path(f"/usr/local/Cellar/scrcpy/{version}/share/scrcpy/scrcpy-server"),
+        ]
+    for path in candidates:
+        if path.is_file():
+            return str(path)
+    raise RuntimeError(
+        "scrcpy-server not found. Set SCRCPY_SERVER_PATH to the host scrcpy-server file."
+    )
+
+
+def _detect_scrcpy_version(scrcpy_path: str, *, runner: Any | None = None) -> str:
+    runner = runner or subprocess.run
+    try:
+        proc = runner(
+            [scrcpy_path, "--version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            timeout=5,
+        )
+    except Exception:
+        return ""
+    output = _bytes_for_regex(proc.stdout) + b"\n" + _bytes_for_regex(proc.stderr)
+    match = re.search(rb"scrcpy\s+([0-9]+(?:\.[0-9]+){1,3})", output)
+    return match.group(1).decode() if match else ""
+
+
+def _bytes_for_regex(value: bytes | str | None) -> bytes:
+    if value is None:
+        return b""
+    return value if isinstance(value, bytes) else str(value).encode()
+
+
+def _find_free_tcp_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
 
 
 def _jpeg_to_png(jpeg: bytes) -> bytes:

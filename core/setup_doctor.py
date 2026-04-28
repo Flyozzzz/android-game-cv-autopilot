@@ -46,6 +46,13 @@ def run_setup_doctor(
         _check_module("appium", "Install Appium-Python-Client from requirements.txt"),
         _check_adb_binary(adb_path, runner),
     ]
+    frame_source = env.get("FRAME_SOURCE", "adb").strip().lower()
+    if frame_source in {"screenrecord", "scrcpy", "scrcpy_raw"}:
+        checks.append(_check_host_binary("ffmpeg", env.get("FFMPEG_PATH", ""), "Install ffmpeg for H.264 stream decoding."))
+    if frame_source == "scrcpy_raw" and env.get("SCRCPY_SERVER_PATH", "").strip():
+        checks.append(_check_scrcpy_server_file(env["SCRCPY_SERVER_PATH"]))
+    elif frame_source in {"scrcpy", "scrcpy_raw"}:
+        checks.append(_check_host_binary("scrcpy", env.get("SCRCPY_PATH", ""), "Install scrcpy or set SCRCPY_SERVER_PATH for scrcpy_raw."))
     devices = _adb_devices(adb_path, runner)
     checks.append(_check_devices(devices))
     checks.append(_check_docker_adb(env))
@@ -117,6 +124,20 @@ def _check_adb_binary(adb_path: str, runner: CommandRunner) -> DoctorCheck:
     if proc.returncode == 0:
         return DoctorCheck("adb", "ok", "adb is runnable")
     return DoctorCheck("adb", "fail", _decode(proc.stderr) or "adb version failed", "Install Android SDK platform-tools.")
+
+
+def _check_host_binary(name: str, configured_path: str, hint: str) -> DoctorCheck:
+    path = configured_path.strip() or shutil.which(name)
+    if path and (shutil.which(path) or os.path.isfile(path)):
+        return DoctorCheck(name, "ok", f"{name} is available")
+    return DoctorCheck(name, "fail", f"{name} is required for selected FRAME_SOURCE", hint)
+
+
+def _check_scrcpy_server_file(path: str) -> DoctorCheck:
+    expanded = os.path.expanduser(path.strip())
+    if os.path.isfile(expanded):
+        return DoctorCheck("scrcpy_server", "ok", "SCRCPY_SERVER_PATH points to a file")
+    return DoctorCheck("scrcpy_server", "fail", f"SCRCPY_SERVER_PATH does not exist: {expanded}", "Install scrcpy or point SCRCPY_SERVER_PATH at scrcpy-server.")
 
 
 def _adb_devices(adb_path: str, runner: CommandRunner) -> list[str]:

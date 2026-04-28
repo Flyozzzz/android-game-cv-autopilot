@@ -22,9 +22,15 @@ def main() -> int:
     parser.add_argument("--samples", type=int, default=5, help="Number of screenshots.")
     parser.add_argument(
         "--source",
-        choices=("adb", "adb_raw"),
+        choices=("adb", "adb_raw", "scrcpy_raw"),
         default="adb",
         help="Capture backend to benchmark.",
+    )
+    parser.add_argument(
+        "--nudge-key",
+        type=int,
+        default=None,
+        help="Optional Android keyevent sent during streaming benchmarks to force frame updates on static screens.",
     )
     args = parser.parse_args()
     result = benchmark_capture_source(
@@ -32,6 +38,7 @@ def main() -> int:
         serial=args.serial,
         adb_path=args.adb,
         samples=args.samples,
+        nudge_key=args.nudge_key,
     )
     print(json.dumps(result.to_dict(), ensure_ascii=False, indent=2))
     return 0 if result.status in {"fast", "usable"} else 2

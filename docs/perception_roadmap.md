@@ -40,7 +40,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 - Menu/tutorial perception tries local providers before LLM when enabled.
 - Repeated screens reuse cached perception before providers/LLM.
 - Replay-based tests run without a connected Android device.
-- ADB PNG, ADB raw, replay, scrcpy, screenrecord, and minicap frame-source
+- ADB PNG, ADB raw, replay, scrcpy one-shot, scrcpy raw stream, screenrecord, and minicap frame-source
   selections have real backends and explicit runtime prerequisite errors.
 - Dashboard overlay shows ROI, boxes, confidence, source, latency, and whether
   LLM was called.
@@ -74,7 +74,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 
 - Added `Frame`, `FrameSource`, `AdbScreencapSource`,
   `AdbRawFrameSource`, `AdbScreenrecordFrameSource`, `ReplayFrameSource`,
-  `ScrcpyFrameSource`, and `MinicapFrameSource`.
+  `ScrcpyFrameSource`, `ScrcpyRawStreamFrameSource`, and `MinicapFrameSource`.
 - Replay source reads PNG frames from disk, advances deterministically, and can
   repeat or hold the final frame.
 - ADB source can wrap an existing action object's `screenshot()` method.
@@ -84,7 +84,11 @@ roadmap. Each item must include real code and tests before it is marked done.
 - Screenrecord source starts an H.264 stream and attempts local ffmpeg decoding;
   this is real code, but device support must be verified because some Android
   builds buffer screenrecord output until the stream closes.
-- Scrcpy source invokes host `scrcpy` and `ffmpeg` to produce a PNG frame.
+- Scrcpy one-shot source invokes host `scrcpy` and `ffmpeg` to produce a PNG
+  frame.
+- Scrcpy raw stream source starts `scrcpy-server`, forwards
+  `localabstract:scrcpy`, reads raw H.264, and decodes through persistent host
+  `ffmpeg`; this is the validated realtime path for USB device `47d33e1c`.
 - Minicap source forwards the minicap localabstract socket and decodes JPEG
   frames from the minicap banner/frame-size protocol.
 
@@ -274,8 +278,12 @@ roadmap. Each item must include real code and tests before it is marked done.
     -> `adb_screencap avg_ms=126.539`, status `usable`.
   - `python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb_raw`
     -> `adb_raw_screencap avg_ms=137.974`, status `usable`.
+  - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 3 --source adb`
+    -> `adb_screencap avg_ms=617.144`, status `slow`.
   - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw`
-    -> `adb_raw_screencap avg_ms=700.510`, status `slow`.
+    -> latest `adb_raw_screencap avg_ms=841.762`, status `slow`.
+  - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source scrcpy_raw --nudge-key 82`
+    -> `scrcpy_raw_stream avg_ms=28.235`, `p95_ms=39.183`, status `fast`.
   - `ScrcpyFrameSource` with host `scrcpy 3.3.4` produced a real 1080x2400
     frame, but the one-shot record/extract path measured about `4968 ms`; it is
     not a realtime loop.
