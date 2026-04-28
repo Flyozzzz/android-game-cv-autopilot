@@ -1,7 +1,7 @@
 import asyncio
 
 from core.action_engine import ActionEngine
-from core.cv_engine import CVEngine
+from core.cv_engine import CVEngine, _normalize_ui_action
 from core.metrics import MetricsCollector, TraceEvent, reset_metrics, metrics_snapshot
 
 
@@ -86,7 +86,11 @@ def test_cv_engine_records_llm_provider_latency():
             return {"choices": [{"message": {"content": "{\"ok\": true}"}}]}
 
     class FakeClient:
+        def __init__(self):
+            self.max_tokens = None
+
         async def post(self, *args, **kwargs):
+            self.max_tokens = kwargs["json"]["max_tokens"]
             return FakeResponse()
 
         async def aclose(self):
@@ -94,13 +98,15 @@ def test_cv_engine_records_llm_provider_latency():
 
     reset_metrics()
     cv = CVEngine(api_key="key", models=["test/model"])
-    cv.client = FakeClient()
+    client = FakeClient()
+    cv.client = client
 
     result = asyncio.run(cv._call_vision("find button", "a" * 120))
     asyncio.run(cv.close())
     snapshot = metrics_snapshot()
 
     assert result == "{\"ok\": true}"
+    assert client.max_tokens == 4096
     assert snapshot["counters"]["provider_llm_calls"] == 1
     assert snapshot["latencies"]["provider_llm_ms"]["count"] == 1
 
@@ -161,6 +167,13 @@ def test_cv_engine_accepts_openrouter_content_parts():
     asyncio.run(cv.close())
 
     assert result == "{\"ok\":\n true}"
+
+
+def test_cv_engine_normalizes_common_vision_action_aliases():
+    assert _normalize_ui_action("click") == "tap"
+    assert _normalize_ui_action("input") == "type"
+    assert _normalize_ui_action("key") == "press"
+    assert _normalize_ui_action("scroll") == "swipe"
 
 
 def test_cv_engine_rejects_missing_api_key_before_http(monkeypatch):

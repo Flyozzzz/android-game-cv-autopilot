@@ -40,6 +40,20 @@ def _message_content_text(message: dict[str, Any]) -> str | None:
     return None
 
 
+def _normalize_ui_action(action: str) -> str:
+    value = str(action or "wait").strip().lower()
+    aliases = {
+        "click": "tap",
+        "press_button": "tap",
+        "input": "type",
+        "text": "type",
+        "keyboard": "type",
+        "key": "press",
+        "scroll": "swipe",
+    }
+    return aliases.get(value, value)
+
+
 def _draw_sparse_coordinate_grid(image_bytes: bytes) -> bytes:
     """Draw light rulers on the screenshot so Vision models can return better x/y coordinates."""
 
@@ -328,7 +342,7 @@ class CVEngine:
                                     ],
                                 }
                             ],
-                            "max_tokens": 2500,
+                            "max_tokens": int(getattr(config, "CV_MAX_TOKENS", 4096) or 4096),
                             "temperature": 0.1,
                         },
                     )
@@ -595,7 +609,7 @@ Rules:
             return UIActionPlan(action="wait", wait_seconds=1.5, reason="parse_error")
         try:
             return UIActionPlan(
-                action=str(data.get("action", "wait")).strip().lower(),
+                action=_normalize_ui_action(str(data.get("action", "wait"))),
                 target=str(data.get("target", "") or ""),
                 text_value_key=str(data.get("text_value_key", "") or ""),
                 text=str(data.get("text", "") or ""),

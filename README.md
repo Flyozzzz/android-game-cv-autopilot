@@ -5,13 +5,13 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-356%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-358%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `356 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `358 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
 Subway Surfers local runner smoke passed · Purchases `preview only`
 
@@ -891,10 +891,10 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-356 passed, 1 skipped without OPENROUTER_API_KEY
+358 passed, 1 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
-Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5
+Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
@@ -1184,7 +1184,8 @@ Common variables:
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
 | `CV_MODELS` | Comma-separated Vision model fallback list; defaults to `xiaomi/mimo-v2.5` |
-| `CV_MODEL_ATTEMPTS` | Retry count per Vision model for transient empty/null provider responses; defaults to `2` |
+| `CV_MODEL_ATTEMPTS` | Retry count per Vision model for transient empty/null provider responses; defaults to `3` |
+| `CV_MAX_TOKENS` | Vision response token budget; defaults to `4096` so reasoning models can still return final JSON |
 | `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
 | `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, or `minicap`; `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
@@ -1925,10 +1926,10 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-356 passed, 1 skipped без OPENROUTER_API_KEY
+358 passed, 1 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
-Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5
+Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
 Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
@@ -2172,7 +2173,8 @@ git push origin beta-0.1.15c
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
 | `CV_MODELS` | Список Vision models через запятую; по умолчанию `xiaomi/mimo-v2.5` |
-| `CV_MODEL_ATTEMPTS` | Количество retry на одну Vision model при transient empty/null provider response; по умолчанию `2` |
+| `CV_MODEL_ATTEMPTS` | Количество retry на одну Vision model при transient empty/null provider response; по умолчанию `3` |
+| `CV_MAX_TOKENS` | Token budget для Vision response; по умолчанию `4096`, чтобы reasoning models успевали вернуть финальный JSON |
 | `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
 | `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap`; `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |

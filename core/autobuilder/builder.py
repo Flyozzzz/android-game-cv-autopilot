@@ -16,6 +16,7 @@ from core.autobuilder.eval_suite import evaluate_autopilot
 from core.autobuilder.explorer import Explorer
 from core.autobuilder.goal_spec import GoalSpec
 from core.autobuilder.live_validation import run_live_validation
+from core.autobuilder.live_exploration import default_live_exploration_actions, run_live_exploration
 from core.autobuilder.profile_generator import generate_profile
 from core.autobuilder.replay_test_runner import run_replay_tests
 from core.autobuilder.roi_generator import generate_roi_zones
@@ -43,6 +44,7 @@ class BuildOptions:
         output_root: str | Path = "autopilots",
         templates_root: str | Path = "assets/templates",
         frame_paths: list[str | Path] | None = None,
+        live_exploration_actions: list[dict[str, Any]] | None = None,
         live_validation: bool = False,
         launch_app: bool = True,
         llm=None,
@@ -57,6 +59,7 @@ class BuildOptions:
         self.output_root = Path(output_root)
         self.templates_root = Path(templates_root)
         self.frame_paths = list(frame_paths or [])
+        self.live_exploration_actions = live_exploration_actions
         self.live_validation = live_validation
         self.launch_app = launch_app
         self.llm = llm
@@ -70,6 +73,7 @@ class AutopilotBuilder:
         policy = SafetyPolicy.from_goal(goal)
         context = BuildContext.create(goal, policy)
         stages: list[dict[str, Any]] = []
+        live_exploration_report: dict[str, Any] = {"status": "skipped", "actions": [], "failures": [], "metrics": {}}
         frame = self._get_frame(options)
         app_info = {}
         if options.package and options.launch_app:
@@ -88,8 +92,28 @@ class AutopilotBuilder:
                 stages.append({"step": "launching_app", "status": "skipped", "reason": "app_not_installed"})
         context = context.with_updates(app_info=app_info)
         graph = ScreenGraph()
-        context, exploration = asyncio.run(Explorer(frame_source=_SingleFrameSource(frame)).explore(context.with_updates(screen_graph=graph)))
-        graph = context.screen_graph or graph
+        replay_dir = options.output_root / goal.autopilot_id / "replays" / "frames"
+        replay_dir.mkdir(parents=True, exist_ok=True)
+        replay_frame_paths: list[Path] = []
+        if options.serial and options.live_exploration_actions is not None:
+            live_exploration = run_live_exploration(
+                serial=options.serial,
+                adb_path=options.adb_path,
+                actions=options.live_exploration_actions or default_live_exploration_actions(),
+                output_dir=replay_dir,
+                policy=policy,
+                runner=options.runner,
+            )
+            live_exploration_report = live_exploration.to_report()
+            stages.append({"step": "live_exploration", "status": live_exploration.state.status, "metrics": live_exploration_report["metrics"]})
+            graph = live_exploration.graph
+            exploration = live_exploration.state
+            replay_frame_paths = list(live_exploration.frame_paths)
+            if replay_frame_paths:
+                frame = asyncio.run(ReplayFrameSource(replay_frame_paths).latest_frame())
+        else:
+            context, exploration = asyncio.run(Explorer(frame_source=_SingleFrameSource(frame)).explore(context.with_updates(screen_graph=graph)))
+            graph = context.screen_graph or graph
         initial_screen_id = _first_screen_id(graph) or "screen_001"
         analysis = self._analyze_screen(frame, goal, policy, graph, context, options)
         graph.add_screen(
@@ -110,11 +134,10 @@ class AutopilotBuilder:
             analysis=analysis,
         )
         scenario = generate_scenario(goal, profile, graph, policy)
-        replay_dir = options.output_root / goal.autopilot_id / "replays" / "frames"
-        replay_dir.mkdir(parents=True, exist_ok=True)
         frame_path = replay_dir / "frame_000.png"
-        if frame.png_bytes:
+        if not replay_frame_paths and frame.png_bytes:
             frame_path.write_bytes(frame.png_bytes)
+            replay_frame_paths = [frame_path]
         templates = mine_templates(
             frame=frame,
             elements=analysis.get("safe_elements", []),
@@ -128,6 +151,7 @@ class AutopilotBuilder:
             "template_mining": templates,
             "stages": stages,
             "exploration": exploration.to_dict(),
+            "live_exploration": live_exploration_report,
             "metrics": context.metrics,
             "trace": context.trace,
         }
@@ -144,7 +168,7 @@ class AutopilotBuilder:
         replay_report = asyncio.run(
             run_replay_tests(
                 loaded,
-                frame_paths=[frame_path],
+                frame_paths=replay_frame_paths or [frame_path],
                 templates_root=options.output_root / goal.autopilot_id / "templates",
             )
         )
@@ -170,8 +194,11 @@ class AutopilotBuilder:
             change="initial build",
             test_result={"replay": replay_report, "live": live_report},
         )
+        status = "ok"
+        if replay_report["status"] != "passed" or live_exploration_report.get("status") == "failed":
+            status = "warning"
         return {
-            "status": "ok" if replay_report["status"] == "passed" else "warning",
+            "status": status,
             "goal_spec": goal.to_dict(),
             "bundle": bundle_result,
             "profile": profile,
@@ -179,6 +206,8 @@ class AutopilotBuilder:
             "screen_graph": graph.to_dict(),
             "analysis": analysis,
             "template_mining": templates,
+            "exploration": exploration.to_dict(),
+            "live_exploration": live_exploration_report,
             "replay_report": replay_report,
             "live_report": live_report,
             "repair": repair,
