@@ -82,7 +82,7 @@ Result: `44 passed`, `100.00%` coverage for `core.autobuilder` and
 
 ## Completed Audit Steps
 
-- Full repository regression: `378 passed, 3 skipped` without
+- Full repository regression: `392 passed, 1 skipped` without
   `OPENROUTER_API_KEY`; two live ADB smoke cases skipped because the connected
   screen was locked/too flat for template matching.
 - Benchmark matrix smoke: `subway-surfers` completed `1/1` launch+capture run

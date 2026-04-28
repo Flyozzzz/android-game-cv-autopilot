@@ -2,6 +2,10 @@
 
 This guide describes the operator workflow in the web dashboard.
 
+The dashboard runs on FastAPI/uvicorn. API behavior should be added through the
+tested FastAPI transport in `dashboard/server.py`, while reusable behavior stays
+in service/helper functions so MCP and unit tests can exercise the same logic.
+
 ## Main Tabs
 
 | Tab | Purpose |

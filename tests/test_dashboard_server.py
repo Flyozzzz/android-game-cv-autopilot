@@ -9,7 +9,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from dashboard.server import (
-    DashboardHandler,
+    DashboardService,
     _default_settings,
     _preset_files,
     _project_files,
@@ -121,7 +121,7 @@ def test_dashboard_can_save_delete_custom_profile(monkeypatch, tmp_path):
 
     monkeypatch.setenv("GAME_PROFILE_DIR", str(tmp_path))
     monkeypatch.setattr(server, "PROFILES_DIR", tmp_path)
-    handler = object.__new__(DashboardHandler)
+    handler = object.__new__(DashboardService)
 
     saved = handler._save_profile({
         "profile": {
@@ -155,7 +155,7 @@ def test_dashboard_can_save_delete_named_preset(monkeypatch, tmp_path):
 
     monkeypatch.setattr(server, "PRESETS_DIR", tmp_path)
     monkeypatch.setattr(server, "LATEST_PRESET", tmp_path / "latest.json")
-    handler = object.__new__(DashboardHandler)
+    handler = object.__new__(DashboardService)
 
     saved = handler._save_named_preset({
         "name": "new_route",

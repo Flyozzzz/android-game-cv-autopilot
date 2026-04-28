@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import asdict
 import hmac
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import mimetypes
 import os
@@ -16,7 +16,11 @@ import secrets
 import sys
 import threading
 import time
-from urllib.parse import parse_qs, urlparse
+
+import uvicorn
+from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
 STATIC_DIR = Path(__file__).resolve().parent / "static"
@@ -109,8 +113,15 @@ EXCLUDED_FILE_NAMES = {
 MAX_EDIT_FILE_BYTES = 768 * 1024
 
 
-def _json_bytes(payload: object) -> bytes:
-    return json.dumps(payload, ensure_ascii=False, indent=2).encode("utf-8")
+def _json_response(
+    payload: object,
+    *,
+    status: int = 200,
+    headers: Mapping[str, str] | None = None,
+) -> JSONResponse:
+    response_headers = {"Cache-Control": "no-store"}
+    response_headers.update(dict(headers or {}))
+    return JSONResponse(payload, status_code=status, headers=response_headers)
 
 
 def _run_command(args: list[str], *, timeout: int = 10) -> tuple[int, str, str]:
@@ -617,131 +628,21 @@ def _default_settings() -> dict:
     }
 
 
-class DashboardHandler(BaseHTTPRequestHandler):
-    server_version = "AutopilotDashboard/1.0"
+class DashboardService:
+    """Dashboard application service used by the FastAPI transport layer."""
 
-    def do_GET(self) -> None:
-        try:
-            parsed = urlparse(self.path)
-            if not self._request_authorized(parsed.path):
-                if parsed.path == "/":
-                    self._send_file(STATIC_DIR / "login.html")
-                    return
-                if parsed.path.startswith("/api/"):
-                    self._send_auth_required()
-                    return
-            if parsed.path == "/":
-                self._send_file(STATIC_DIR / "index.html")
-            elif parsed.path.startswith("/static/"):
-                self._send_static_file(parsed.path.removeprefix("/static/"))
-            elif parsed.path == "/api/state":
-                self._send_json(self._state_payload())
-            elif parsed.path == "/api/log":
-                self._send_json({"log": _tail(RUN_LOG_PATH)})
-            elif parsed.path == "/api/recordings":
-                self._send_json({"recordings": _recording_files()})
-            elif parsed.path == "/api/profiles":
-                self._send_json({"profiles": self._profiles_payload()})
-            elif parsed.path == "/api/presets":
-                self._send_json({"presets": _preset_files()})
-            elif parsed.path == "/api/recordings/read":
-                query = parse_qs(parsed.query)
-                self._send_json(self._read_recording((query.get("path") or [""])[0]))
-            elif parsed.path == "/api/files":
-                self._send_json({"files": _project_files()})
-            elif parsed.path == "/api/files/read":
-                query = parse_qs(parsed.query)
-                self._send_json(self._read_project_file((query.get("path") or [""])[0]))
-            elif parsed.path == "/api/device/screenshot":
-                query = parse_qs(parsed.query)
-                serial = _select_serial((query.get("serial") or [""])[0])
-                self._send_screenshot(serial)
-            elif parsed.path == "/api/vision/inspector":
-                query = parse_qs(parsed.query)
-                serial_value = (query.get("serial") or [""])[0]
-                serial = _select_serial(serial_value) if serial_value else ""
-                self._send_json(vision_inspector_payload(serial=serial))
-            elif parsed.path == "/api/vision/templates":
-                self._send_json(list_template_library())
-            elif parsed.path == "/api/builder/state":
-                self._send_json(builder_state())
-            else:
-                self.send_error(404)
-        except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
-
-    def do_POST(self) -> None:
-        try:
-            parsed = urlparse(self.path)
-            payload = self._read_json()
-            if parsed.path == "/api/login":
-                result, headers, status = self._login(payload)
-                self._send_json(result, headers=headers, status=status)
-            elif parsed.path == "/api/logout":
-                self._send_json({"ok": True}, headers=[
-                    ("Set-Cookie", f"{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax"),
-                ])
-            elif not self._request_authorized(parsed.path):
-                self._send_auth_required()
-            elif parsed.path == "/api/run":
-                self._send_json(self._start_run(payload))
-            elif parsed.path == "/api/stop":
-                self._send_json(self._stop_run())
-            elif parsed.path == "/api/check":
-                self._send_json(self._check_project())
-            elif parsed.path == "/api/preset":
-                self._send_json(self._save_preset(payload))
-            elif parsed.path == "/api/presets":
-                self._send_json(self._save_named_preset(payload))
-            elif parsed.path == "/api/presets/delete":
-                self._send_json(self._delete_preset(payload))
-            elif parsed.path == "/api/profiles":
-                self._send_json(self._save_profile(payload))
-            elif parsed.path == "/api/profiles/delete":
-                self._send_json(self._delete_profile(payload))
-            elif parsed.path == "/api/manual/continue":
-                self._send_json(self._manual_continue())
-            elif parsed.path == "/api/device/tap":
-                self._send_json(self._device_tap(payload))
-            elif parsed.path == "/api/device/swipe":
-                self._send_json(self._device_swipe(payload))
-            elif parsed.path == "/api/device/key":
-                self._send_json(self._device_key(payload))
-            elif parsed.path == "/api/device/text":
-                self._send_json(self._device_text(payload))
-            elif parsed.path == "/api/cv/plan":
-                self._send_json(self._cv_plan(payload))
-            elif parsed.path == "/api/cv/run":
-                self._send_json(self._cv_run(payload))
-            elif parsed.path == "/api/vision/templates":
-                self._send_json(self._vision_save_template(payload))
-            elif parsed.path == "/api/vision/roi":
-                self._send_json(create_roi_from_payload(payload))
-            elif parsed.path == "/api/vision/labels":
-                self._send_json(export_label_from_payload(payload))
-            elif parsed.path == "/api/builder/build":
-                self._send_json(build_autopilot_from_payload(payload, adb_path=ADB_PATH))
-            elif parsed.path == "/api/recordings":
-                self._send_json(self._save_recording(payload))
-            elif parsed.path == "/api/recordings/replay":
-                self._send_json(self._replay_recording(payload))
-            elif parsed.path == "/api/files/write":
-                self._send_json(self._write_project_file(payload))
-            else:
-                self.send_error(404)
-        except Exception as e:
-            self._send_json({"error": str(e)}, status=500)
-
-    def _request_authorized(self, path: str) -> bool:
+    def request_authorized(self, path: str, headers: Mapping[str, str]) -> bool:
         if not _dashboard_auth_enabled() or _is_public_path(path):
             return True
-        if _session_authorized(self.headers.get("Cookie", "")):
+        if _session_authorized(headers.get("cookie", "") or headers.get("Cookie", "")):
             return True
-        api_key = self.headers.get("X-Dashboard-Api-Key", "") or self.headers.get("Authorization", "")
+        api_key = (
+            headers.get("x-dashboard-api-key", "")
+            or headers.get("X-Dashboard-Api-Key", "")
+            or headers.get("authorization", "")
+            or headers.get("Authorization", "")
+        )
         return _api_key_authorized(api_key)
-
-    def _send_auth_required(self) -> None:
-        self._send_json({"error": "authentication required"}, status=401)
 
     def _login(self, payload: dict) -> tuple[dict, list[tuple[str, str]], int]:
         username = str(payload.get("username") or "")
@@ -1155,70 +1056,159 @@ class DashboardHandler(BaseHTTPRequestHandler):
             raise RuntimeError(proc.stderr.decode(errors="ignore"))
         return proc.stdout
 
-    def _send_screenshot(self, serial: str) -> None:
-        screenshot = self._screenshot_bytes(serial)
-        self.send_response(200)
-        self.send_header("Content-Type", "image/png")
-        self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(screenshot)))
-        self.end_headers()
-        self.wfile.write(screenshot)
 
-    def _send_file(self, path: Path) -> None:
-        if not path.exists() or not path.is_file():
-            self.send_error(404)
-            return
-        mime = mimetypes.guess_type(str(path))[0] or "application/octet-stream"
-        data = path.read_bytes()
-        self.send_response(200)
-        self.send_header("Content-Type", mime)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+def _file_response(path: Path) -> Response:
+    if not path.exists() or not path.is_file():
+        return _json_response({"error": "not found"}, status=404)
+    return FileResponse(
+        path,
+        media_type=mimetypes.guess_type(str(path))[0] or "application/octet-stream",
+    )
 
-    def _send_static_file(self, path_value: str) -> None:
-        path = (STATIC_DIR / path_value).resolve()
-        if not _inside_root(path, STATIC_DIR.resolve()):
-            self.send_error(404)
-            return
-        self._send_file(path)
 
-    def _send_json(
-        self,
-        payload: object,
-        *,
-        status: int = 200,
-        headers: list[tuple[str, str]] | None = None,
-    ) -> None:
-        data = _json_bytes(payload)
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json; charset=utf-8")
-        self.send_header("Cache-Control", "no-store")
-        for key, value in headers or []:
-            self.send_header(key, value)
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+async def _request_payload(request: Request) -> dict:
+    raw = await request.body()
+    if not raw:
+        return {}
+    return json.loads(raw.decode("utf-8") or "{}")
 
-    def _read_json(self) -> dict:
-        length = int(self.headers.get("Content-Length") or "0")
-        if length <= 0:
-            return {}
-        raw = self.rfile.read(length).decode("utf-8")
-        return json.loads(raw or "{}")
 
-    def log_message(self, fmt: str, *args) -> None:
-        sys.stderr.write("[dashboard] " + (fmt % args) + "\n")
+def _query_value(request: Request, name: str, default: str = "") -> str:
+    return str(request.query_params.get(name, default) or default)
+
+
+def _service_error(exc: Exception) -> JSONResponse:
+    return _json_response({"error": str(exc)}, status=500)
+
+
+def create_app(service: DashboardService | None = None) -> FastAPI:
+    dashboard = service or DashboardService()
+    app = FastAPI(title="Android Game CV Autopilot Dashboard", version="1.0")
+    app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+    @app.get("/", include_in_schema=False)
+    async def index(request: Request) -> Response:
+        if not dashboard.request_authorized("/", request.headers):
+            return _file_response(STATIC_DIR / "login.html")
+        return _file_response(STATIC_DIR / "index.html")
+
+    @app.get("/api/{endpoint:path}")
+    async def get_api(endpoint: str, request: Request) -> Response:
+        path = f"/api/{endpoint}"
+        if not dashboard.request_authorized(path, request.headers):
+            return _json_response({"error": "authentication required"}, status=401)
+        try:
+            if path == "/api/state":
+                return _json_response(dashboard._state_payload())
+            if path == "/api/log":
+                return _json_response({"log": _tail(RUN_LOG_PATH)})
+            if path == "/api/recordings":
+                return _json_response({"recordings": _recording_files()})
+            if path == "/api/profiles":
+                return _json_response({"profiles": dashboard._profiles_payload()})
+            if path == "/api/presets":
+                return _json_response({"presets": _preset_files()})
+            if path == "/api/recordings/read":
+                return _json_response(dashboard._read_recording(_query_value(request, "path")))
+            if path == "/api/files":
+                return _json_response({"files": _project_files()})
+            if path == "/api/files/read":
+                return _json_response(dashboard._read_project_file(_query_value(request, "path")))
+            if path == "/api/device/screenshot":
+                serial = _select_serial(_query_value(request, "serial"))
+                screenshot = dashboard._screenshot_bytes(serial)
+                return Response(
+                    content=screenshot,
+                    media_type="image/png",
+                    headers={"Cache-Control": "no-store"},
+                )
+            if path == "/api/vision/inspector":
+                serial_value = _query_value(request, "serial")
+                serial = _select_serial(serial_value) if serial_value else ""
+                return _json_response(vision_inspector_payload(serial=serial))
+            if path == "/api/vision/templates":
+                return _json_response(list_template_library())
+            if path == "/api/builder/state":
+                return _json_response(builder_state())
+            return _json_response({"error": "not found"}, status=404)
+        except Exception as exc:
+            return _service_error(exc)
+
+    @app.post("/api/{endpoint:path}")
+    async def post_api(endpoint: str, request: Request) -> Response:
+        path = f"/api/{endpoint}"
+        try:
+            payload = await _request_payload(request)
+            if path == "/api/login":
+                result, headers, status = dashboard._login(payload)
+                return _json_response(result, headers=dict(headers), status=status)
+            if path == "/api/logout":
+                return _json_response({"ok": True}, headers={
+                    "Set-Cookie": f"{SESSION_COOKIE_NAME}=; Path=/; Max-Age=0; HttpOnly; SameSite=Lax",
+                })
+            if not dashboard.request_authorized(path, request.headers):
+                return _json_response({"error": "authentication required"}, status=401)
+            if path == "/api/run":
+                return _json_response(dashboard._start_run(payload))
+            if path == "/api/stop":
+                return _json_response(dashboard._stop_run())
+            if path == "/api/check":
+                return _json_response(dashboard._check_project())
+            if path == "/api/preset":
+                return _json_response(dashboard._save_preset(payload))
+            if path == "/api/presets":
+                return _json_response(dashboard._save_named_preset(payload))
+            if path == "/api/presets/delete":
+                return _json_response(dashboard._delete_preset(payload))
+            if path == "/api/profiles":
+                return _json_response(dashboard._save_profile(payload))
+            if path == "/api/profiles/delete":
+                return _json_response(dashboard._delete_profile(payload))
+            if path == "/api/manual/continue":
+                return _json_response(dashboard._manual_continue())
+            if path == "/api/device/tap":
+                return _json_response(dashboard._device_tap(payload))
+            if path == "/api/device/swipe":
+                return _json_response(dashboard._device_swipe(payload))
+            if path == "/api/device/key":
+                return _json_response(dashboard._device_key(payload))
+            if path == "/api/device/text":
+                return _json_response(dashboard._device_text(payload))
+            if path == "/api/cv/plan":
+                return _json_response(dashboard._cv_plan(payload))
+            if path == "/api/cv/run":
+                return _json_response(dashboard._cv_run(payload))
+            if path == "/api/vision/templates":
+                return _json_response(dashboard._vision_save_template(payload))
+            if path == "/api/vision/roi":
+                return _json_response(create_roi_from_payload(payload))
+            if path == "/api/vision/labels":
+                return _json_response(export_label_from_payload(payload))
+            if path == "/api/builder/build":
+                return _json_response(build_autopilot_from_payload(payload, adb_path=ADB_PATH))
+            if path == "/api/recordings":
+                return _json_response(dashboard._save_recording(payload))
+            if path == "/api/recordings/replay":
+                return _json_response(dashboard._replay_recording(payload))
+            if path == "/api/files/write":
+                return _json_response(dashboard._write_project_file(payload))
+            return _json_response({"error": "not found"}, status=404)
+        except Exception as exc:
+            return _service_error(exc)
+
+    return app
+
+
+app = create_app()
 
 
 def main() -> None:
     port = int(os.getenv("DASHBOARD_PORT", "8765"))
     host = os.getenv("DASHBOARD_HOST", "127.0.0.1").strip() or "127.0.0.1"
     _validate_dashboard_exposure(host)
-    server = ThreadingHTTPServer((host, port), DashboardHandler)
     display_host = "127.0.0.1" if host in {"0.0.0.0", "::"} else host
     print(f"Dashboard: http://{display_host}:{port}")
-    server.serve_forever()
+    uvicorn.run(app, host=host, port=port, log_level="info")
 
 
 if __name__ == "__main__":

@@ -3,15 +3,16 @@
 ![Python](https://img.shields.io/badge/Python-3.13-3776AB?logo=python&logoColor=white)
 ![Android](https://img.shields.io/badge/Android-ADB%20%2B%20Appium-3DDC84?logo=android&logoColor=white)
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
+![CI](https://github.com/Flyozzzz/android-game-cv-autopilot/actions/workflows/ci.yml/badge.svg)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-378%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-392%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `378 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `392 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
 Subway Surfers local runner smoke passed · Purchases `preview only`
 
@@ -24,9 +25,9 @@ It is designed for real Android devices and emulators connected through ADB and
 Appium. The default perception mode is local-first: fast frame access,
 ROI zones, UIAutomator/text candidates, template matching, optional local
 detectors, screen cache, action scheduling, and Vision LLM only as a fallback.
-It also includes manual phone control, recorded action replay, custom game
-profile construction, named presets, a visual inspector, test runners, and an
-MCP bridge.
+It also includes a FastAPI/uvicorn dashboard, manual phone control, recorded
+action replay, custom game profile construction, named presets, a visual
+inspector, test runners, and an MCP bridge.
 
 The dashboard UI supports English and Russian.
 
@@ -952,7 +953,7 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-Full local regression: 378 passed, 3 skipped without OPENROUTER_API_KEY
+Full local regression: 392 passed, 1 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on USB device 47d33e1c with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
@@ -964,7 +965,7 @@ Subway Surfers local runner smoke: passed on device 47d33e1c
 Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
 
-The `378 passed` figure is not a claim that every profile has 378 live E2E
+The `392 passed` figure is not a claim that every profile has 392 live E2E
 runs. It is the repository regression suite: unit tests, contract tests, mocked
 integration boundaries, static checks, and live smoke tests that skip when a
 Vision key is missing or the connected screen is locked/too flat for template
@@ -976,6 +977,10 @@ Run all active tests:
 ```bash
 python3 -m pytest -q
 ```
+
+GitHub Actions runs compile checks, `scripts/secret_scan.sh`, the full pytest
+suite, repository coverage, and uploads `coverage.xml` plus
+`reports/pytest-junit.xml` as workflow artifacts.
 
 Run compile checks:
 
@@ -1514,7 +1519,7 @@ Android Game CV Autopilot — локальная лаборатория авто
 Проект умеет устанавливать игры, проходить безопасный onboarding/tutorial,
 запускать gameplay-помощники, доходить до preview-экрана покупки и
 останавливаться до реального подтверждения оплаты. Управление доступно из
-двуязычного web dashboard и через MCP-совместимые AI-клиенты.
+двуязычного FastAPI/uvicorn web dashboard и через MCP-совместимые AI-клиенты.
 
 Текущая архитектура — local-first: сначала быстрые локальные источники кадров,
 ROI, UIAutomator/text, шаблоны, optional detector, cache и scheduler; Vision LLM
@@ -2062,7 +2067,7 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-Full local regression: 378 passed, 3 skipped без OPENROUTER_API_KEY
+Full local regression: 392 passed, 1 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on USB device 47d33e1c with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
@@ -2074,7 +2079,7 @@ Subway Surfers local runner smoke: passed on device 47d33e1c
 Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
 
-`378 passed` не означает, что каждый профиль прошел 378 live E2E-прогонов. Это
+`392 passed` не означает, что каждый профиль прошел 392 live E2E-прогонов. Это
 repository regression suite: unit tests, contract tests, mocked integration
 boundaries, static checks и live smoke tests, которые уходят в skip без Vision
 key или если подключенный экран заблокирован/слишком плоский для template
@@ -2086,6 +2091,10 @@ reports и benchmark-matrix JSON.
 ```bash
 python3 -m pytest -q
 ```
+
+GitHub Actions запускает compile checks, `scripts/secret_scan.sh`, полный
+pytest, repository coverage и загружает `coverage.xml` вместе с
+`reports/pytest-junit.xml` как artifacts workflow.
 
 Проверка зависимостей в чистом venv:
 

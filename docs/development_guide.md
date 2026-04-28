@@ -72,6 +72,18 @@ flowchart TD
 | Documentation and screenshots | `docs/` |
 | Tests | `tests/` |
 
+## Maintainability Rules
+
+- Python comments, docstrings, log messages, and internal developer-facing code
+  should be English. The dashboard and README can remain bilingual for users.
+- Keep new dashboard HTTP endpoints in the FastAPI transport layer in
+  `dashboard/server.py`, and keep reusable behavior in service/helper
+  functions that tests can call directly.
+- Do not add new `BaseHTTPRequestHandler` routes. The dashboard runtime is
+  FastAPI/uvicorn, with legacy behavior covered by endpoint parity tests.
+- Avoid broad language-only rewrites in unrelated files. Clean comments and
+  docstrings in files you touch so diffs stay reviewable.
+
 ## Local Development
 
 Create the environment:
@@ -135,6 +147,10 @@ Run the full test suite:
 ```bash
 python3 -m pytest
 ```
+
+CI runs the same compile/test flow on GitHub Actions with Python 3.13, uploads
+`coverage.xml` and `reports/pytest-junit.xml`, and runs `scripts/secret_scan.sh`
+before tests.
 
 The repository-wide count is a deterministic regression count: unit tests,
 contract tests, mocked integration boundaries, and static checks. Live evidence

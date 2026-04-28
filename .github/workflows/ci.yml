@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Python 3.13 tests and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      DASHBOARD_AUTH_ENABLED: "1"
+      DASHBOARD_USERNAME: "ci-operator"
+      DASHBOARD_PASSWORD: "ci-local-long-random-password"
+      DASHBOARD_MCP_API_KEY: "ci-local-long-random-mcp-key"
+      OPENROUTER_API_KEY: ""
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.13
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Secret scan
+        run: scripts/secret_scan.sh
+
+      - name: Compile Python modules
+        run: |
+          python -m compileall -q core dashboard scenarios services tests bootstrap.py main.py config.py
+
+      - name: Run tests with coverage
+        run: |
+          mkdir -p reports
+          python -m pytest \
+            --cov \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml \
+            --junitxml=reports/pytest-junit.xml
+
+      - name: Upload coverage and test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-and-coverage-reports
+          path: |
+            coverage.xml
+            reports/pytest-junit.xml
+          if-no-files-found: error

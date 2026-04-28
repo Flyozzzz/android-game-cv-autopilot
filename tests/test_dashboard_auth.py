@@ -74,7 +74,7 @@ def test_dashboard_allows_public_bind_only_with_strong_secrets(monkeypatch):
 
 
 def test_dashboard_preset_cleaning_redacts_unknown_secret_shapes():
-    handler = object.__new__(server.DashboardHandler)
+    handler = object.__new__(server.DashboardService)
     cleaned = handler._clean_preset_settings(
         {
             "settings": {

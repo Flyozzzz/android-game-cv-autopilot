@@ -1,18 +1,11 @@
-"""
-═══════════════════════════════════════════════════════════════════
- Clash Royale Automation Bot
+"""Android Game CV Autopilot command-line entrypoint.
 
- Полный автоматический сценарий (< 3 минут):
- 1. Запуск Android-устройства (Genymotion Cloud)
- 2. Регистрация нового Google-аккаунта (через 5sim.net)
- 3. Настройка Google Pay (добавление карты)
- 4. Установка Clash Royale из Play Store
- 5. Прохождение туториала
- 6. Покупка через Google Pay
+The runtime orchestrates safe Android automation stages for QA and local
+research: device setup, optional Google/account preparation, install,
+tutorial/onboarding, local gameplay helpers, and purchase-preview exploration.
 
- БЕЗ CV — всё через UIAutomator2 deterministic flow.
- Целевое время: < 3 минут.
-═══════════════════════════════════════════════════════════════════
+Real payment confirmation, password/biometric approval, account-security
+bypass, and multiplayer/PvP automation remain blocked by policy.
 """
 import asyncio
 import argparse
@@ -58,7 +51,7 @@ from bootstrap import check_all_apis, check_config
 from services.provider_errors import format_provider_error
 
 
-# ─── Настройка логов ───
+# Logging setup.
 logger.remove()
 logger.add(
     sys.stdout,
@@ -78,7 +71,7 @@ logger.add(
 
 
 def save_credentials(credentials: dict):
-    """Сохранить учётные данные нового аккаунта в credentials.json."""
+    """Save newly created account credentials to the configured credentials file."""
     filepath = Path(getattr(config, "CREDENTIALS_JSON_PATH", "credentials.json"))
     existing = []
     if filepath.exists():
@@ -92,9 +85,7 @@ def save_credentials(credentials: dict):
 
 
 def load_last_saved_google_login() -> dict | None:
-    """
-    Последняя запись из credentials.json для входа (full_email + password).
-    """
+    """Return the latest stored Google login candidate."""
     filepath = Path(getattr(config, "CREDENTIALS_JSON_PATH", "credentials.json"))
     if not filepath.exists():
         return None
@@ -176,9 +167,9 @@ def _manual_registration_missing_phone(stages: set[str]) -> bool:
 
 
 async def main():
-    """Главная точка входа: полный сценарий автоматизации."""
+    """Run the configured Android automation pipeline."""
 
-    # Создаём папки
+    # Create runtime output directories.
     ensure_dir("logs")
     ensure_dir("screenshots")
     ensure_dir("reports")
@@ -221,7 +212,7 @@ async def main():
     )
 
     # ═══════════════════════════════════════════
-    # PHASE 0: Проверка конфигурации и API
+    # PHASE 0: configuration and API checks.
     # ═══════════════════════════════════════════
     current_stage = "preflight"
     logger.info(f"\n{elapsed()} PHASE 0: Pre-flight checks")
@@ -252,7 +243,7 @@ async def main():
         report.write(final_status="failed", error=msg)
         raise RuntimeError(msg)
 
-    # 5sim нужен только для стадии google при регистрации в legacy fivesim-режиме.
+    # 5sim is only needed for the Google stage in legacy 5sim registration mode.
     phone_mode = getattr(config, "GOOGLE_PHONE_MODE", "manual")
     skip_fivesim = "google" not in stages or phone_mode != "fivesim"
     if "google" in stages:
@@ -294,7 +285,7 @@ async def main():
     report.record("preflight", "success", "configuration and API checks passed")
 
     # ═══════════════════════════════════════════
-    # PHASE 1: Запуск Android-устройства
+        # PHASE 1: Android device/session startup.
     # ═══════════════════════════════════════════
     current_stage = "device"
     logger.info(f"\n{elapsed()} PHASE 1: Starting Android device (farm={config.DEVICE_FARM})")
@@ -314,7 +305,7 @@ async def main():
 
     try:
         if config.DEVICE_FARM in ("browserstack", "lambdatest", "local"):
-            # ── BrowserStack/LambdaTest/Local: запуск Appium-сессии ──
+            # BrowserStack/LambdaTest/Local: start an Appium session.
             driver = await farm.start_session()
             action = AppiumActionEngine(driver=driver)
             await action.connect()
@@ -337,7 +328,7 @@ async def main():
             )
 
         else:
-            # ── Genymotion Cloud: старт инстанса + ADB ──
+            # Genymotion Cloud: start the instance and connect ADB.
             if getattr(config, "STOP_RUNNING_INSTANCES_ON_START", False):
                 logger.info(f"{elapsed()} Stopping existing cloud instances before start...")
                 try:
@@ -436,16 +427,16 @@ async def main():
                 logger.success(f"{elapsed()} Google services: gms=OK, play_store=OK")
             else:
                 logger.warning(
-                    f"{elapsed()} Google Play / GMS не готовы "
+                    f"{elapsed()} Google Play / GMS are not ready "
                     f"(gms={has_gms}, play_store={has_store}). "
-                    "Установи GApps через веб-портал Genymotion."
+                    "Install GApps through the Genymotion web portal."
                 )
                 zip_path = getattr(config, "GENYMOTION_ADB_GAPPS_ZIP", "").strip()
                 if getattr(config, "GENYMOTION_TRY_ADB_GAPPS", False):
                     has_fa = await action.has_genymotion_flash_archive()
                     logger.info(
                         f"{elapsed()} GENYMOTION_TRY_ADB_GAPPS=1: flash-archive.sh "
-                        f"на устройстве={'да' if has_fa else 'нет'}"
+                        f"on device={'yes' if has_fa else 'no'}"
                     )
                     if zip_path and Path(zip_path).is_file():
                         ok_flash, flash_msg = await action.try_flash_genymotion_gapps_zip(
@@ -465,28 +456,28 @@ async def main():
                                     "com.android.vending"
                                 )
                                 logger.info(
-                                    f"{elapsed()} После flash+reboot: gms={has_gms}, "
+                                    f"{elapsed()} After flash+reboot: gms={has_gms}, "
                                     f"play_store={has_store}"
                                 )
                         else:
                             logger.error(
-                                f"{elapsed()} ADB flash GApps не вышел: {flash_msg}"
+                                f"{elapsed()} ADB flash GApps failed: {flash_msg}"
                             )
                     elif zip_path:
                         logger.warning(
-                            f"{elapsed()} GENYMOTION_ADB_GAPPS_ZIP задан, но файл "
-                            f"не найден: {zip_path}"
+                            f"{elapsed()} GENYMOTION_ADB_GAPPS_ZIP is set, but the file "
+                            f"was not found: {zip_path}"
                         )
                     else:
                         logger.warning(
-                            f"{elapsed()} Задай GENYMOTION_ADB_GAPPS_ZIP=/путь.zip "
-                            "для flash-archive (на свой риск)."
+                            f"{elapsed()} Set GENYMOTION_ADB_GAPPS_ZIP=/path.zip "
+                            "for flash-archive use at your own risk."
                         )
 
-        # Включаем экран
+        # Wake the screen.
         await action.wake_up()
 
-        # Пропускаем setup wizard (OOBE) если устройство новое
+        # Dismiss setup wizard / OOBE on fresh devices.
         logger.info(f"{elapsed()} Checking for setup wizard / OOBE...")
         from scenarios.base import BaseScenario
         _oobe_helper = type('_OOBE', (BaseScenario,), {'NAME': 'oobe', 'run': lambda self: None})(cv=None, action=action)
@@ -511,8 +502,8 @@ async def main():
                     use_login = True
                     reused_from_file = True
                     logger.info(
-                        f"{elapsed()} TEST_RUN=1: вход по сохранённому аккаунту "
-                        f"({config.CREDENTIALS_JSON_PATH}), без новой регистрации"
+                        f"{elapsed()} TEST_RUN=1: using saved account login "
+                        f"({config.CREDENTIALS_JSON_PATH}), no new registration"
                     )
 
             if use_login:
@@ -599,7 +590,7 @@ async def main():
                     f"{registered_credentials['full_email']}"
                 )
             report.record("google", "success", "Google account setup complete")
-            # ── Google Play Sign-in после регистрации ──
+            # Google Play sign-in after registration.
             current_stage = "play_signin"
             logger.info(f"\n{elapsed()} PHASE 3: Google Play Sign-in")
             try:
@@ -829,14 +820,14 @@ async def main():
         # ═══════════════════════════════════════════
         logger.info("\n🧹 Cleaning up...")
 
-        # Завершаем SMS-заказ если активен
+        # Cancel the SMS order if one is active.
         if sms.current_order_id:
             try:
                 await sms.cancel_order()
             except Exception:
                 pass
 
-        # Останавливаем устройство
+        # Stop the device/session.
         try:
             if config.DEVICE_FARM in ("browserstack", "lambdatest", "local"):
                 await farm.stop_session()
@@ -845,7 +836,7 @@ async def main():
         except Exception as e:
             logger.warning(f"Error stopping device: {e}")
 
-        # Закрываем HTTP-клиенты
+        # Close HTTP clients.
         try:
             await farm.close()
             await sms.close()

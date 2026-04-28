@@ -1,7 +1,7 @@
-"""
-Конфиг проекта.
-GOOGLE_EMAIL и GOOGLE_PASSWORD могут заполняться автоматически
-после регистрации нового аккаунта.
+"""Project configuration.
+
+GOOGLE_EMAIL and GOOGLE_PASSWORD can be populated automatically after creating
+a new account in controlled test flows.
 """
 import os
 
@@ -28,7 +28,7 @@ DASHBOARD_MCP_API_KEY = os.getenv("DASHBOARD_MCP_API_KEY", "change-me").strip() 
 
 
 # ══════════════════════════════════════════════════
-# OpenRouter — может использоваться для других задач
+# OpenRouter can also be used by non-CV tasks.
 # ══════════════════════════════════════════════════
 OPENROUTER_API_KEY = os.getenv(
     "OPENROUTER_API_KEY",
@@ -102,7 +102,7 @@ DETECTOR_MODEL_PATH = os.getenv("DETECTOR_MODEL_PATH", "").strip()
 DETECTOR_CONFIDENCE_THRESHOLD = float(os.getenv("DETECTOR_CONFIDENCE_THRESHOLD", "0.50"))
 
 # ══════════════════════════════════════════════════
-# Ферма устройств: local | genymotion | browserstack | lambdatest
+# Device farm: local | genymotion | browserstack | lambdatest.
 # ══════════════════════════════════════════════════
 DEVICE_FARM = os.getenv("DEVICE_FARM", "local").strip().lower()
 
@@ -113,7 +113,7 @@ APPIUM_PORT = int(os.getenv("APPIUM_PORT", "4723"))
 LOCAL_DEVICE = os.getenv("LOCAL_DEVICE", "emulator-5554")
 
 # ══════════════════════════════════════════════════
-# BrowserStack App Automate (реальные устройства с Play Market)
+# BrowserStack App Automate with real Android devices and Play Store.
 # ══════════════════════════════════════════════════
 BROWSERSTACK_USERNAME = os.getenv("BROWSERSTACK_USERNAME", "").strip()
 BROWSERSTACK_ACCESS_KEY = os.getenv("BROWSERSTACK_ACCESS_KEY", "").strip()
@@ -121,7 +121,7 @@ BROWSERSTACK_DEVICE = os.getenv("BROWSERSTACK_DEVICE", "Google Pixel 7").strip()
 BROWSERSTACK_OS_VERSION = os.getenv("BROWSERSTACK_OS_VERSION", "13.0").strip()
 
 # ══════════════════════════════════════════════════
-# LambdaTest Real Devices (реальные устройства с Play Market)
+# LambdaTest Real Devices with Play Store.
 # ══════════════════════════════════════════════════
 LT_USERNAME = os.getenv("LT_USERNAME", "").strip()
 LT_ACCESS_KEY = os.getenv("LT_ACCESS_KEY", "").strip()
@@ -129,20 +129,20 @@ LT_DEVICE = os.getenv("LT_DEVICE", "Pixel 7").strip()
 LT_OS_VERSION = os.getenv("LT_OS_VERSION", "14").strip()
 
 # ══════════════════════════════════════════════════
-# Genymotion Cloud — ферма Android-устройств
+# Genymotion Cloud Android device farm.
 # ══════════════════════════════════════════════════
 GENYMOTION_API_TOKEN = os.getenv(
     "GENYMOTION_API_TOKEN",
     ""
 )
-# Публичный SaaS API
+# Public SaaS API.
 GENYMOTION_API_URL = os.getenv(
     "GENYMOTION_API_URL",
     "https://api.geny.io/cloud",
 )
 
 # ══════════════════════════════════════════════════
-# 5sim.net — SMS-аренда номеров
+# 5sim.net SMS number rental.
 # ══════════════════════════════════════════════════
 FIVESIM_API_KEY = os.getenv(
     "FIVESIM_API_KEY",
@@ -161,10 +161,10 @@ GOOGLE_WEB_PROXY = os.getenv("GOOGLE_WEB_PROXY", "").strip()
 GOOGLE_EMAIL = os.getenv("GOOGLE_EMAIL", "")
 GOOGLE_PASSWORD = os.getenv("GOOGLE_PASSWORD", "")
 
-# Регистрация нового аккаунта:
-#   web    — accounts.google.com в Chromium (Playwright), без Android
-#   chrome — Chrome WebView на устройстве (CDP)
-#   cv     — Chrome на устройстве + screenshot/Vision autopilot
+# New account registration:
+#   web    - accounts.google.com in Chromium through Playwright, no Android.
+#   chrome - Chrome WebView on the device through CDP.
+#   cv     - Chrome on the device plus screenshot/Vision autopilot.
 #   android — Settings → Add Account (UIAutomator2)
 _GOOGLE_REG_VIA = os.getenv("GOOGLE_REGISTER_VIA", "chrome").strip().lower()
 _google_reg_via_resolved = (
@@ -196,7 +196,7 @@ except ValueError:
     GOOGLE_WEB_SLOW_MO_MS = 0
 
 # ══════════════════════════════════════════════════
-# Платёжная карта
+# Payment card.
 # ══════════════════════════════════════════════════
 CARD_NUMBER = os.getenv("CARD_NUMBER", "")
 CARD_EXPIRY = os.getenv("CARD_EXPIRY", "")
@@ -249,7 +249,7 @@ RECORDED_TUTORIAL_PATH = os.getenv("RECORDED_TUTORIAL_PATH", "").strip()
 RECORDED_GAMEPLAY_PATH = os.getenv("RECORDED_GAMEPLAY_PATH", "").strip()
 
 # ══════════════════════════════════════════════════
-# Настройки устройства (Genymotion Cloud)
+# Device settings for Genymotion Cloud.
 # ══════════════════════════════════════════════════
 TARGET_ANDROID_VERSION = os.getenv("TARGET_ANDROID_VERSION", "12.0").strip()
 TARGET_DEVICE_KEYWORD = os.getenv("TARGET_DEVICE_KEYWORD", "pixel").strip()
@@ -265,34 +265,34 @@ SCREEN_WIDTH = 1080
 SCREEN_HEIGHT = 2400
 
 # ══════════════════════════════════════════════════
-# Тайминги
+# Timing.
 # ══════════════════════════════════════════════════
-TOTAL_TIMEOUT_SECONDS = 180       # 3 минуты на весь сценарий
-ADB_COMMAND_TIMEOUT = 30          # макс время на ADB команду
-POLL_INTERVAL = 0.5               # пауза между шагами
-SCREENSHOT_DIR = "screenshots"    # папка для debug-скриншотов
+TOTAL_TIMEOUT_SECONDS = 180       # 3 minutes for the whole scenario.
+ADB_COMMAND_TIMEOUT = 30          # Maximum time for an ADB command.
+POLL_INTERVAL = 0.5               # Delay between polling steps.
+SCREENSHOT_DIR = "screenshots"    # Debug screenshot directory.
 
 # ══════════════════════════════════════════════════
-# Трассировка и диагностика
+# Tracing and diagnostics.
 # ══════════════════════════════════════════════════
 TRACE_ENABLED = os.getenv("TRACE_ENABLED", "1").strip() not in ("0", "false", "False")
 TRACE_DIR = os.getenv("TRACE_DIR", "trace").strip()
 
-# Какие этапы запускать в main
+# Stages to run in main.
 RUN_STAGES = os.getenv("RUN_STAGES", "").strip()
 
-# TEST_RUN: если GOOGLE_EMAIL/PASSWORD не заданы — взять последний
-# аккаунт из credentials.json и войти (без новой регистрации).
+# TEST_RUN: if GOOGLE_EMAIL/PASSWORD are empty, use the latest account from
+# credentials.json and log in without creating a new account.
 _TEST_RUN_RAW = os.getenv("TEST_RUN", "0").strip().lower()
 TEST_RUN = _TEST_RUN_RAW in ("1", "true", "yes", "on")
 CREDENTIALS_JSON_PATH = os.getenv("CREDENTIALS_JSON_PATH", "credentials.json").strip()
 
-# Эксперимент: прошить zip через /system/bin/flash-archive.sh
+# Experimental: flash a zip through /system/bin/flash-archive.sh.
 _GAPPS_TRY_RAW = os.getenv("GENYMOTION_TRY_ADB_GAPPS", "0").strip().lower()
 GENYMOTION_TRY_ADB_GAPPS = _GAPPS_TRY_RAW in ("1", "true", "yes", "on")
 GENYMOTION_ADB_GAPPS_ZIP = os.getenv("GENYMOTION_ADB_GAPPS_ZIP", "").strip()
 
-# Перед стартом нового device останавливать уже запущенные Genymotion инстансы.
+# Stop already running Genymotion instances before starting a new device.
 STOP_RUNNING_INSTANCES_ON_START = (
     os.getenv("STOP_RUNNING_INSTANCES_ON_START", "1").strip()
     not in ("0", "false", "False")

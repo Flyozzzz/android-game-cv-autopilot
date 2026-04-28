@@ -248,7 +248,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `378 passed, 3 skipped` without `OPENROUTER_API_KEY`; two live ADB
+  - Result: `392 passed, 1 skipped` without `OPENROUTER_API_KEY`; live ADB
     smoke cases skipped because the connected screen was locked/too flat for
     template matching.
 - Vision planner hardening:
