@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/android-game-cv-autopilot/profile_evidence.schema.json",
+  "title": "Profile Evidence",
+  "type": "object",
+  "required": ["profile_id", "result", "maturity", "scope", "validated_at"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "profile_id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "result": {
+      "type": "string",
+      "enum": ["passed", "failed", "skipped"]
+    },
+    "maturity": {
+      "type": "string",
+      "enum": ["proven", "validated", "beta", "experimental", "template-only", "deprecated"]
+    },
+    "scope": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "uniqueItems": true
+    },
+    "validated_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "device": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "serial": {"type": "string"},
+        "model": {"type": "string"},
+        "android_version": {"type": "string"},
+        "resolution": {"type": "string"},
+        "language": {"type": "string"}
+      }
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "package": {"type": "string"},
+        "version": {"type": "string"},
+        "activity": {"type": "string"}
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "frame_source": {"type": "string"},
+        "perception_mode": {"type": "string"},
+        "action_mode": {"type": "string"},
+        "model": {"type": "string"}
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "live_report": {"type": "string"},
+        "replay_report": {"type": "string"},
+        "frames": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "logs": {
+          "type": "array",
+          "items": {"type": "string"}
+        }
+      }
+    },
+    "limits": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

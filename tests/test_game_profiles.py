@@ -27,6 +27,15 @@ def test_resolves_builtin_profile_by_package():
     assert profile.screen_zones["match3_board"] == (0.07, 0.30, 0.93, 0.78)
 
 
+def test_loads_android_settings_as_safe_qa_profile():
+    profile = resolve_game_profile("android-settings")
+
+    assert profile.package == "com.android.settings"
+    assert profile.validation_status == "validated"
+    assert "launch" in profile.validation_scope
+    assert "payment" in profile.blocker_words
+
+
 def test_custom_profile_requires_package_for_reliable_runs():
     profile = resolve_game_profile("Some Game", package="com.example.game")
 
@@ -41,6 +50,27 @@ def test_cli_profile_format_lists_key_games():
     assert "talking-tom" in output
     assert "brawl-stars" in output
     assert "subway-surfers" in output
+
+
+def test_cli_profile_format_marks_starter_strategy(monkeypatch, tmp_path):
+    (tmp_path / "starter-runner.json").write_text(
+        """
+{
+  "id": "starter-runner",
+  "name": "Starter Runner",
+  "package": "com.example.runner",
+  "gameplay_strategy": "fast_runner",
+  "validation_status": "starter"
+}
+""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GAME_PROFILE_DIR", str(tmp_path))
+
+    output = format_profiles_for_cli()
+
+    assert "starter-runner" in output
+    assert "starter/fast_runner" in output
 
 
 def test_env_lines_for_profile():

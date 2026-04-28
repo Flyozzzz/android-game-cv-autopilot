@@ -1,0 +1,49 @@
+{
+  "$schema": "../../schema/profile_evidence.schema.json",
+  "profile_id": "candy-crush",
+  "result": "passed",
+  "maturity": "validated",
+  "scope": [
+    "launch",
+    "capture",
+    "safe_exploration"
+  ],
+  "validated_at": "2026-04-28",
+  "device": {
+    "serial": "47d33e1c",
+    "model": "not_captured_by_validator",
+    "android_version": "not_captured_by_validator",
+    "language": "not_captured_by_validator",
+    "resolution": "1080x2400"
+  },
+  "app": {
+    "package": "com.king.candycrushsaga",
+    "activity": "",
+    "version": "not_captured_by_validator"
+  },
+  "runtime": {
+    "frame_sources": [
+      "adb",
+      "adb_raw"
+    ],
+    "perception_mode": "local_first",
+    "action_mode": "guarded_safe_exploration",
+    "exploration_status": "ok",
+    "model": "none",
+    "tracked_frame_max_side": 540
+  },
+  "artifacts": {
+    "live_report": "profiles/candy-crush/validation/live_20260428/live_report.json",
+    "frames": [
+      "profiles/candy-crush/validation/live_20260428/frames/frame_000.png",
+      "profiles/candy-crush/validation/live_20260428/frames/frame_001.png",
+      "profiles/candy-crush/validation/live_20260428/frames/frame_002.png",
+      "profiles/candy-crush/validation/live_20260428/frames/frame_003.png",
+      "profiles/candy-crush/validation/live_20260428/frames/frame_004.png"
+    ]
+  },
+  "limits": [
+    "This proof pack validates launch, capture, and safe exploration on the listed device.",
+    "Match-3 board solving is covered by deterministic solver tests; this live run is not a universal gameplay proof."
+  ]
+}

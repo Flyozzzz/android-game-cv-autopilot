@@ -1,0 +1,55 @@
+{
+  "id": "android-settings",
+  "name": "Android Settings",
+  "package": "com.android.settings",
+  "aliases": [
+    "settings",
+    "android settings"
+  ],
+  "player_name_prefix": "Operator",
+  "install_query": "Android Settings",
+  "tutorial_hints": [
+    "Use only read-only navigation and safe scrolling.",
+    "Do not change account, security, payment, network, developer, or privacy settings."
+  ],
+  "purchase_hints": [],
+  "blocker_words": [
+    "password",
+    "pin",
+    "fingerprint",
+    "payment",
+    "account"
+  ],
+  "gameplay_strategy": "none",
+  "proven": false,
+  "validation_status": "validated",
+  "validation_scope": [
+    "launch",
+    "capture"
+  ],
+  "validation_runs": 1,
+  "last_validated": "2026-04-28",
+  "notes": "Tracked live validation passed on emulator-5554 for launch and capture. Safe ordinary Android app profile for QA-lab positioning.",
+  "max_tutorial_steps": 0,
+  "max_purchase_steps": 0,
+  "screen_zones": {
+    "bottom_buttons": [
+      0.05,
+      0.72,
+      0.95,
+      0.96
+    ],
+    "top_currency": [
+      0.0,
+      0.0,
+      1.0,
+      0.14
+    ],
+    "popup_center": [
+      0.15,
+      0.2,
+      0.85,
+      0.8
+    ]
+  }
+}

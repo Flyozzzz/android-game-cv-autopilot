@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 import json
 import subprocess
@@ -154,7 +154,8 @@ def validate_profiles_live(
         "failed": sum(1 for item in reports if item["status"] != "passed"),
     }
     Path(output_root).mkdir(parents=True, exist_ok=True)
-    report_path = Path(output_root) / f"profile_live_validation_{date.today().isoformat()}.json"
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    report_path = Path(output_root) / f"profile_live_validation_{stamp}.json"
     report_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     summary["report_path"] = str(report_path)
     return summary

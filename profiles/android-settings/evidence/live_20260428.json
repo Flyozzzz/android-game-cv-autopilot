@@ -1,0 +1,44 @@
+{
+  "$schema": "../../schema/profile_evidence.schema.json",
+  "profile_id": "android-settings",
+  "result": "passed",
+  "maturity": "validated",
+  "scope": [
+    "launch",
+    "capture"
+  ],
+  "validated_at": "2026-04-28",
+  "device": {
+    "serial": "emulator-5554",
+    "model": "sdk_gphone64_arm64",
+    "android_version": "16",
+    "language": "not_set",
+    "resolution": "1080x2400"
+  },
+  "app": {
+    "package": "com.android.settings",
+    "activity": "",
+    "version": "16"
+  },
+  "runtime": {
+    "frame_sources": [
+      "adb",
+      "adb_raw"
+    ],
+    "perception_mode": "local_first",
+    "action_mode": "launch_capture",
+    "exploration_status": "skipped",
+    "model": "none",
+    "tracked_frame_max_side": 540
+  },
+  "artifacts": {
+    "live_report": "profiles/android-settings/validation/live_20260428/live_report.json",
+    "frames": [
+      "profiles/android-settings/validation/live_20260428/frames/frame_000.png"
+    ]
+  },
+  "limits": [
+    "This proof pack validates launch and capture for a normal Android app profile on emulator-5554.",
+    "No account, password, biometric, payment, or security-sensitive flow was automated."
+  ]
+}

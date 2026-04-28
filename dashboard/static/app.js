@@ -294,6 +294,18 @@ function renderProfiles() {
   state.profiles.forEach((profile) => {
     const tr = document.createElement("tr");
     const status = profile.maturity || (profile.proven ? "proven" : "starter");
+    const evidence = profile.evidence || {};
+    const latestEvidence = evidence.latest || {};
+    const evidenceLabel = evidence.count
+      ? `evidence ${evidence.count} · ${evidence.latest_result || "unknown"}`
+      : "no evidence";
+    const evidenceDetails = evidence.count
+      ? [
+          evidence.latest_validated_at,
+          latestEvidence.device && latestEvidence.device.serial ? `device ${latestEvidence.device.serial}` : "",
+          evidence.latest_scope && evidence.latest_scope.length ? `scope ${evidence.latest_scope.join(", ")}` : "",
+        ].filter(Boolean).join(" · ")
+      : "No live/replay evidence record found.";
     tr.innerHTML = `
       <td><strong></strong><br><span></span></td>
       <td></td>
@@ -306,8 +318,8 @@ function renderProfiles() {
     tr.children[0].querySelector("span").textContent = profile.name;
     tr.children[1].textContent = profile.package || "";
     tr.children[2].textContent = profile.gameplay_strategy || "none";
-    tr.children[3].textContent = profile.source === "custom" ? `${status} · custom` : status;
-    tr.children[4].textContent = profile.notes || "";
+    tr.children[3].textContent = profile.source === "custom" ? `${status} · custom · ${evidenceLabel}` : `${status} · ${evidenceLabel}`;
+    tr.children[4].textContent = [profile.notes || "", evidenceDetails].filter(Boolean).join(" | ");
     const editButton = tr.children[5].querySelector("button");
     editButton.textContent = t("button.edit");
     editButton.addEventListener("click", () => fillProfileForm(profile));

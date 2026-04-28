@@ -1,0 +1,49 @@
+{
+  "$schema": "../../schema/profile_evidence.schema.json",
+  "profile_id": "talking-tom",
+  "result": "passed",
+  "maturity": "proven",
+  "scope": [
+    "launch",
+    "capture",
+    "safe_exploration"
+  ],
+  "validated_at": "2026-04-28",
+  "device": {
+    "serial": "47d33e1c",
+    "model": "not_captured_by_validator",
+    "android_version": "not_captured_by_validator",
+    "language": "not_captured_by_validator",
+    "resolution": "1080x2400"
+  },
+  "app": {
+    "package": "com.outfit7.mytalkingtomfree",
+    "activity": "",
+    "version": "not_captured_by_validator"
+  },
+  "runtime": {
+    "frame_sources": [
+      "adb",
+      "adb_raw"
+    ],
+    "perception_mode": "local_first",
+    "action_mode": "guarded_safe_exploration",
+    "exploration_status": "ok",
+    "model": "none",
+    "tracked_frame_max_side": 540
+  },
+  "artifacts": {
+    "live_report": "profiles/talking-tom/validation/live_20260428/live_report.json",
+    "frames": [
+      "profiles/talking-tom/validation/live_20260428/frames/frame_000.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_001.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_002.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_003.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_004.png"
+    ]
+  },
+  "limits": [
+    "This proof pack validates live launch, capture, and safe exploration on the listed device only.",
+    "Existing profile maturity also includes prior tutorial and purchase-preview scope; real payment confirmation remains blocked."
+  ]
+}

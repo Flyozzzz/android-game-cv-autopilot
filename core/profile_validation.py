@@ -9,9 +9,20 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any
 
+from core.profile_evidence import profile_evidence_summary
+
 
 MATURE_STATUSES = {"proven", "validated"}
-STARTER_STATUSES = {"starter", "helper", "blocked", "unknown"}
+STARTER_STATUSES = {
+    "beta",
+    "blocked",
+    "deprecated",
+    "experimental",
+    "helper",
+    "starter",
+    "template-only",
+    "unknown",
+}
 
 
 @dataclass(frozen=True)
@@ -48,12 +59,17 @@ def profile_is_production_ready(profile: Any) -> bool:
     return profile_maturity(profile) in MATURE_STATUSES and _scope_covers_strategy(profile)
 
 
-def profile_readiness_issues(profile: Any) -> list[ProfileReadinessIssue]:
+def profile_readiness_issues(
+    profile: Any,
+    *,
+    evidence: dict[str, Any] | None = None,
+) -> list[ProfileReadinessIssue]:
     issues: list[ProfileReadinessIssue] = []
     maturity = profile_maturity(profile)
     package = str(getattr(profile, "package", "") or "").strip()
     zones = dict(getattr(profile, "screen_zones", {}) or {})
     strategy = str(getattr(profile, "gameplay_strategy", "none") or "none")
+    evidence = evidence if evidence is not None else profile_evidence_summary(profile)
 
     if not package:
         issues.append(ProfileReadinessIssue("missing_package", "fail", "Profile has no Android package name."))
@@ -67,11 +83,14 @@ def profile_readiness_issues(profile: Any) -> list[ProfileReadinessIssue]:
         issues.append(ProfileReadinessIssue("missing_runner_lanes", "fail", "Fast runner profiles require runner_lanes ROI."))
     if strategy == "match3_solver" and "match3_board" not in zones:
         issues.append(ProfileReadinessIssue("missing_match3_board", "fail", "Match-3 profiles require match3_board ROI."))
+    if maturity in MATURE_STATUSES and int(evidence.get("count") or 0) <= 0:
+        issues.append(ProfileReadinessIssue("missing_evidence", "warn", "Profile maturity is claimed, but no live/replay evidence record was found."))
     return issues
 
 
 def profile_validation_summary(profile: Any) -> dict[str, Any]:
-    issues = profile_readiness_issues(profile)
+    evidence = profile_evidence_summary(profile)
+    issues = profile_readiness_issues(profile, evidence=evidence)
     maturity = profile_maturity(profile)
     return {
         "maturity": maturity,
@@ -80,6 +99,7 @@ def profile_validation_summary(profile: Any) -> dict[str, Any]:
         "validation_scope": list(getattr(profile, "validation_scope", ()) or ()),
         "last_validated": str(getattr(profile, "last_validated", "") or ""),
         "validation_runs": int(getattr(profile, "validation_runs", 0) or 0),
+        "evidence": evidence,
     }
 
 

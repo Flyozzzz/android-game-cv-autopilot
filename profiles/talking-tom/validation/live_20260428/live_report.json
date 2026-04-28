@@ -1,0 +1,432 @@
+{
+  "source_report": "reports/profile_validation/profile_live_validation_2026-04-28_154240.json",
+  "validated_on": "2026-04-28",
+  "serial": "47d33e1c",
+  "profile": {
+    "profile_id": "talking-tom",
+    "name": "My Talking Tom",
+    "package": "com.outfit7.mytalkingtomfree",
+    "status": "passed",
+    "validation_status": "validated",
+    "validation_scope": [
+      "launch",
+      "capture",
+      "safe_exploration"
+    ],
+    "serial": "47d33e1c",
+    "installed": true,
+    "launch_ok": true,
+    "current_activity": "",
+    "latency": {
+      "adb": {
+        "name": "adb_screencap",
+        "samples": 2,
+        "avg_ms": 2084.184,
+        "p95_ms": 2198.402,
+        "max_ms": 2198.402,
+        "target_ms": 80.0,
+        "status": "slow",
+        "recommendation": "ADB screencap is too slow for fast gameplay; use replay/scrcpy/minicap and local-only runtime."
+      },
+      "adb_raw": {
+        "name": "adb_raw_screencap",
+        "samples": 2,
+        "avg_ms": 830.631,
+        "p95_ms": 934.041,
+        "max_ms": 934.041,
+        "target_ms": 80.0,
+        "status": "slow",
+        "recommendation": "ADB screencap is too slow for fast gameplay; use replay/scrcpy/minicap and local-only runtime."
+      }
+    },
+    "exploration": {
+      "status": "ok",
+      "actions": [
+        {
+          "type": "swipe",
+          "direction": "up",
+          "name": "safe_scroll_up",
+          "result_screen_id": "screen_002"
+        },
+        {
+          "type": "swipe",
+          "direction": "down",
+          "name": "safe_scroll_down",
+          "result_screen_id": "screen_003"
+        },
+        {
+          "type": "swipe",
+          "direction": "left",
+          "name": "safe_swipe_left",
+          "result_screen_id": "screen_004"
+        },
+        {
+          "type": "swipe",
+          "direction": "right",
+          "name": "safe_swipe_right",
+          "result_screen_id": "screen_005"
+        }
+      ],
+      "failures": [],
+      "frames": [
+        "reports/profile_validation/talking-tom/frames/frame_000.png",
+        "reports/profile_validation/talking-tom/frames/frame_001.png",
+        "reports/profile_validation/talking-tom/frames/frame_002.png",
+        "reports/profile_validation/talking-tom/frames/frame_003.png",
+        "reports/profile_validation/talking-tom/frames/frame_004.png"
+      ],
+      "screen_graph": {
+        "screens": [
+          {
+            "screen_id": "screen-001",
+            "hash": "ee53c7e046f8137d",
+            "type": "menu",
+            "texts": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank",
+              "com.outfit7.mytalkingtomfriends",
+              "Больше Тома и Друзей!"
+            ],
+            "elements": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank"
+            ],
+            "safe_actions": [],
+            "risky_actions": []
+          },
+          {
+            "screen_id": "screen-002",
+            "hash": "3033be3f5b770d02",
+            "type": "menu",
+            "texts": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank",
+              "com.outfit7.mytalkingtomfriends",
+              "Больше Тома и Друзей!"
+            ],
+            "elements": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank"
+            ],
+            "safe_actions": [
+              "safe_scroll_up"
+            ],
+            "risky_actions": []
+          },
+          {
+            "screen_id": "screen-003",
+            "hash": "3033be3f5b770d02",
+            "type": "menu",
+            "texts": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank",
+              "com.outfit7.mytalkingtomfriends",
+              "Больше Тома и Друзей!"
+            ],
+            "elements": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank"
+            ],
+            "safe_actions": [
+              "safe_scroll_down"
+            ],
+            "risky_actions": []
+          },
+          {
+            "screen_id": "screen-004",
+            "hash": "3033be3f5b770d02",
+            "type": "menu",
+            "texts": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank",
+              "com.outfit7.mytalkingtomfriends",
+              "Больше Тома и Друзей!"
+            ],
+            "elements": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank"
+            ],
+            "safe_actions": [
+              "safe_swipe_left"
+            ],
+            "risky_actions": []
+          },
+          {
+            "screen_id": "screen-005",
+            "hash": "3033be3f5b770d02",
+            "type": "menu",
+            "texts": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank",
+              "com.outfit7.mytalkingtomfriends",
+              "Больше Тома и Друзей!"
+            ],
+            "elements": [
+              "android:id/content",
+              "Game view",
+              "com.outfit7.mytalkingtomfree:id/unitySurfaceView",
+              "com.outfit7.mytalkingtomfree:id/felis_main_view",
+              "com.outfit7.mytalkingtomfree:id/felis_game_view",
+              "com.outfit7.mytalkingtomfree:id/loadingScreenPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/imgBackground",
+              "Ты можешь сохранять и восстанавливать игровой прогресс в настройках.",
+              "com.outfit7.mytalkingtomfree:id/outlineTxt",
+              "com.outfit7.mytalkingtomfree:id/progressBar",
+              "com.outfit7.mytalkingtomfree:id/progressBarMask",
+              "com.outfit7.mytalkingtomfree:id/progressBarFill",
+              "com.outfit7.mytalkingtomfree:id/imgLogo",
+              "com.outfit7.mytalkingtomfree:id/felisNavigationPlaceholder",
+              "com.outfit7.mytalkingtomfree:id/felis_navigation_host_fragment",
+              "com.outfit7.mytalkingtomfree:id/composeView",
+              "com.outfit7.mytalkingtomfriends2",
+              "com.outfit7.talkingtomgoldrun",
+              "com.outfit7.mytalkingangela2",
+              "com.outfit7.mytalkinghank"
+            ],
+            "safe_actions": [
+              "safe_swipe_right"
+            ],
+            "risky_actions": []
+          }
+        ],
+        "transitions": [
+          {
+            "from": "screen_001",
+            "action": "safe_scroll_up",
+            "to": "screen_002"
+          },
+          {
+            "from": "screen_002",
+            "action": "safe_scroll_down",
+            "to": "screen_003"
+          },
+          {
+            "from": "screen_003",
+            "action": "safe_swipe_left",
+            "to": "screen_004"
+          },
+          {
+            "from": "screen_004",
+            "action": "safe_swipe_right",
+            "to": "screen_005"
+          }
+        ]
+      },
+      "metrics": {
+        "actions": 4,
+        "frames": 5,
+        "screens": 5,
+        "transitions": 4
+      }
+    },
+    "failures": [],
+    "validated_on": "2026-04-28"
+  },
+  "tracked_artifacts": {
+    "frames": [
+      "profiles/talking-tom/validation/live_20260428/frames/frame_000.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_001.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_002.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_003.png",
+      "profiles/talking-tom/validation/live_20260428/frames/frame_004.png"
+    ],
+    "frame_dimensions": [
+      {
+        "path": "profiles/talking-tom/validation/live_20260428/frames/frame_000.png",
+        "width": 243,
+        "height": 540,
+        "source": "reports/profile_validation/talking-tom/frames/frame_000.png"
+      },
+      {
+        "path": "profiles/talking-tom/validation/live_20260428/frames/frame_001.png",
+        "width": 243,
+        "height": 540,
+        "source": "reports/profile_validation/talking-tom/frames/frame_001.png"
+      },
+      {
+        "path": "profiles/talking-tom/validation/live_20260428/frames/frame_002.png",
+        "width": 243,
+        "height": 540,
+        "source": "reports/profile_validation/talking-tom/frames/frame_002.png"
+      },
+      {
+        "path": "profiles/talking-tom/validation/live_20260428/frames/frame_003.png",
+        "width": 243,
+        "height": 540,
+        "source": "reports/profile_validation/talking-tom/frames/frame_003.png"
+      },
+      {
+        "path": "profiles/talking-tom/validation/live_20260428/frames/frame_004.png",
+        "width": 243,
+        "height": 540,
+        "source": "reports/profile_validation/talking-tom/frames/frame_004.png"
+      }
+    ]
+  },
+  "limits": [
+    "This proof pack validates live launch, capture, and safe exploration on the listed device only.",
+    "Existing profile maturity also includes prior tutorial and purchase-preview scope; real payment confirmation remains blocked."
+  ]
+}
