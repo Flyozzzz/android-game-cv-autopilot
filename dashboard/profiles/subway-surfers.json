@@ -1,0 +1,60 @@
+{
+  "id": "subway-surfers",
+  "name": "Subway Surfers",
+  "package": "com.kiloo.subwaysurf",
+  "aliases": [
+    "subway",
+    "subway surfers",
+    "subway-surfer"
+  ],
+  "player_name_prefix": "Runner",
+  "install_query": "Subway Surfers",
+  "tutorial_hints": [
+    "Complete age/consent screens and start the first run.",
+    "When active runner gameplay begins, use done so the fast local gameplay loop can take over."
+  ],
+  "purchase_hints": [
+    "Use store/shop buttons from the home screen; never tap price or buy confirmations."
+  ],
+  "blocker_words": [],
+  "gameplay_strategy": "fast_runner",
+  "proven": false,
+  "validation_status": "validated",
+  "validation_scope": [
+    "fast_runner_smoke",
+    "launch",
+    "capture",
+    "safe_exploration"
+  ],
+  "validation_runs": 2,
+  "last_validated": "2026-04-28",
+  "notes": "Live validation passed on 47d33e1c: launch, capture, safe_exploration.",
+  "max_tutorial_steps": 90,
+  "max_purchase_steps": 40,
+  "screen_zones": {
+    "bottom_buttons": [
+      0.05,
+      0.72,
+      0.95,
+      0.96
+    ],
+    "top_currency": [
+      0.0,
+      0.0,
+      1.0,
+      0.14
+    ],
+    "popup_center": [
+      0.15,
+      0.2,
+      0.85,
+      0.8
+    ],
+    "runner_lanes": [
+      0.1,
+      0.58,
+      0.9,
+      0.86
+    ]
+  }
+}

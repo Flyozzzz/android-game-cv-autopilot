@@ -1,0 +1,60 @@
+{
+  "id": "brawl-stars",
+  "name": "Brawl Stars",
+  "package": "com.supercell.brawlstars",
+  "aliases": [
+    "brawl",
+    "brawlstars",
+    "bs"
+  ],
+  "player_name_prefix": "Player",
+  "install_query": "Brawl Stars",
+  "tutorial_hints": [
+    "Prefer guest/skip/later for optional Supercell ID sign-in.",
+    "If a server/login failed dialog repeats, report an external blocker."
+  ],
+  "purchase_hints": [
+    "Open the shop/store tab only after the main lobby is reachable."
+  ],
+  "blocker_words": [
+    "supercell id",
+    "login failed",
+    "server connection failed",
+    "войти не удалось",
+    "попробуй позже"
+  ],
+  "gameplay_strategy": "none",
+  "proven": false,
+  "validation_status": "validated",
+  "validation_scope": [
+    "install",
+    "launch",
+    "capture",
+    "safe_exploration"
+  ],
+  "validation_runs": 2,
+  "last_validated": "2026-04-28",
+  "notes": "Live validation passed on 47d33e1c: launch, capture, safe_exploration.",
+  "max_tutorial_steps": 0,
+  "max_purchase_steps": 0,
+  "screen_zones": {
+    "bottom_buttons": [
+      0.05,
+      0.72,
+      0.95,
+      0.96
+    ],
+    "top_currency": [
+      0.0,
+      0.0,
+      1.0,
+      0.14
+    ],
+    "popup_center": [
+      0.15,
+      0.2,
+      0.85,
+      0.8
+    ]
+  }
+}

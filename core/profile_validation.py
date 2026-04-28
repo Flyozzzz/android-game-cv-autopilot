@@ -45,7 +45,7 @@ def profile_maturity(profile: Any) -> str:
 
 
 def profile_is_production_ready(profile: Any) -> bool:
-    return profile_maturity(profile) in MATURE_STATUSES
+    return profile_maturity(profile) in MATURE_STATUSES and _scope_covers_strategy(profile)
 
 
 def profile_readiness_issues(profile: Any) -> list[ProfileReadinessIssue]:
@@ -61,6 +61,8 @@ def profile_readiness_issues(profile: Any) -> list[ProfileReadinessIssue]:
         issues.append(ProfileReadinessIssue("missing_roi", "fail", "Profile has no normalized screen_zones/ROI."))
     if maturity not in MATURE_STATUSES:
         issues.append(ProfileReadinessIssue("not_proven", "warn", f"Profile maturity is {maturity}; run replay and live validation before treating it as proven."))
+    elif not _scope_covers_strategy(profile):
+        issues.append(ProfileReadinessIssue("scope_not_validated", "warn", "Profile has validation evidence, but not for its gameplay strategy scope."))
     if strategy == "fast_runner" and "runner_lanes" not in zones:
         issues.append(ProfileReadinessIssue("missing_runner_lanes", "fail", "Fast runner profiles require runner_lanes ROI."))
     if strategy == "match3_solver" and "match3_board" not in zones:
@@ -92,3 +94,13 @@ def profile_validation_matrix(profiles: list[Any] | tuple[Any, ...]) -> list[dic
         }
         for profile in profiles
     ]
+
+
+def _scope_covers_strategy(profile: Any) -> bool:
+    strategy = str(getattr(profile, "gameplay_strategy", "none") or "none")
+    scope = {str(item).strip().lower() for item in (getattr(profile, "validation_scope", ()) or ())}
+    if strategy == "fast_runner":
+        return bool(scope & {"fast_gameplay", "fast_runner_live", "runner_live"})
+    if strategy == "match3_solver":
+        return bool(scope & {"match3_live", "match3_solver", "solver_unit"})
+    return bool(scope & {"launch", "tutorial", "purchase_preview", "safe_exploration", "install"})

@@ -5,13 +5,13 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-363%20passed-087A68)
+![Tests](https://img.shields.io/badge/tests-371%20passed-087A68)
 ![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
 ![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `363 passed` · Local-first module coverage
+Docker ready · MCP ready · Tests `371 passed` · Local-first module coverage
 `100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
 Subway Surfers local runner smoke passed · Purchases `preview only`
 
@@ -83,16 +83,17 @@ automation:
 - Let MCP-compatible AI clients inspect, edit safe data files, test, and operate
   the system.
 
-Built-in game profiles have different maturity levels. Only `talking-tom` is
-marked `proven=True` in code; the others are reusable starting points or helper
-profiles that still need per-device validation.
+Built-in game profiles have different maturity levels. `proven` means a
+specific end-to-end scope has evidence; `validated` means a narrower live/replay
+scope has evidence. The dashboard reads these statuses from profile JSON and
+keeps the validation scope visible.
 
 | Profile | Package | Strategy | Maturity |
 | --- | --- | --- | --- |
-| `talking-tom` | `com.outfit7.mytalkingtomfree` | CV route | Proven on one connected phone up to purchase preview |
-| `subway-surfers` | `com.kiloo.subwaysurf` | Fast runner helper | Local runner smoke passed; not a universal gameplay bot |
-| `candy-crush` | `com.king.candycrushsaga` | Match-3 helper | Solver profile, needs level-specific validation |
-| `brawl-stars` | `com.supercell.brawlstars` | Generic CV | Conservative profile with login/server blockers |
+| `talking-tom` | `com.outfit7.mytalkingtomfree` | CV route | Proven up to purchase preview; live launch/capture/safe exploration also passed on `47d33e1c` |
+| `subway-surfers` | `com.kiloo.subwaysurf` | Fast runner helper | Live launch/capture/safe exploration passed on `47d33e1c`; fast gameplay still requires realtime frame source validation |
+| `candy-crush` | `com.king.candycrushsaga` | Match-3 helper | Solver unit scope plus live launch/capture/safe exploration passed on `47d33e1c` |
+| `brawl-stars` | `com.supercell.brawlstars` | Generic CV | Live launch/capture/safe exploration passed on `47d33e1c`; login/server blockers remain guarded |
 | `clash-royale` | `com.supercell.clashroyale` | Generic CV | Generic, not proven on this phone |
 | `clash-of-clans` | `com.supercell.clashofclans` | Generic CV | Generic, not proven on this phone |
 
@@ -241,7 +242,7 @@ Implemented rollout flags:
 | Variable | Values | Meaning |
 | --- | --- | --- |
 | `PERCEPTION_MODE` | `local_first` default; also `llm_first`, `shadow`, `local_only` | Controls provider order and fallback behavior |
-| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap` | Selects capture backend; all four are implemented, with `scrcpy`/`minicap` requiring their external host/device prerequisites |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `minicap` | Selects capture backend; `adb_raw` avoids Android-side PNG encoding, `screenrecord`/`scrcpy` need host `ffmpeg`/`scrcpy`, and `minicap` needs device-side minicap files |
 | `ACTION_MODE` | `menu`, `fast` | Chooses safe menu pauses or fast gameplay pauses |
 | `ENABLE_TEMPLATE_PROVIDER` | `true` / `false` | Enables template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | `true` / `false` | Enables native Android text/UI candidates |
@@ -298,7 +299,9 @@ ADB screenshot latency. It exits non-zero only on hard failures.
 Measure reaction speed directly:
 
 ```bash
-python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 ```
 
 Interpreting latency:
@@ -307,7 +310,7 @@ Interpreting latency:
 | --- | --- |
 | `<=80 ms` | Local-first menu loops and light realtime helpers |
 | `80-180 ms` | Menus/tutorials; use streaming for action gameplay |
-| `>180 ms` | Too slow for fast gameplay; use `replay`, `scrcpy`, or `minicap` plus local-only runtime |
+| `>180 ms` | Too slow for fast gameplay; use `replay`, a validated streaming source, or `minicap` plus local-only runtime |
 
 Install Python dependencies:
 
@@ -920,7 +923,7 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-363 passed, 1 skipped without OPENROUTER_API_KEY
+371 passed, 1 skipped without OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 and 4 real ADB exploration actions
@@ -928,6 +931,7 @@ Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
 Subway Surfers local runner smoke: passed on device 47d33e1c
+Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
 
 Run all active tests:
@@ -1216,7 +1220,7 @@ Common variables:
 | `CV_MODEL_ATTEMPTS` | Retry count per Vision model for transient empty/null provider responses; defaults to `3` |
 | `CV_MAX_TOKENS` | Vision response token budget; defaults to `4096` so reasoning models can still return final JSON |
 | `PERCEPTION_MODE` | Default `local_first`; supports `llm_first`, `shadow`, `local_first`, or `local_only` |
-| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, or `minicap`; `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, or `minicap`; `adb_raw` avoids Android PNG encoding, `screenrecord` requires host `ffmpeg`, `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
 | `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Enable local template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Enable native Android text/UI candidates |
@@ -1533,10 +1537,13 @@ FrameSource.latest_frame()
 использует UIAutomator/templates/detector/cache, а Vision вызывает только при
 низкой confidence. `local_only` подходит для fast gameplay и replay tests.
 
-`FRAME_SOURCE=adb` использует текущий ADB screenshot путь, `FRAME_SOURCE=replay`
-читает сохраненные PNG frames. `FRAME_SOURCE=scrcpy` использует host `scrcpy` и
-`ffmpeg` для получения кадра, а `FRAME_SOURCE=minicap` читает minicap socket
-stream, если minicap установлен на устройстве.
+`FRAME_SOURCE=adb` использует текущий ADB PNG screenshot путь,
+`FRAME_SOURCE=adb_raw` забирает raw framebuffer без PNG-энкодинга на Android,
+`FRAME_SOURCE=screenrecord` пробует H.264 stream через `adb screenrecord` +
+host `ffmpeg`, `FRAME_SOURCE=replay` читает сохраненные PNG frames,
+`FRAME_SOURCE=scrcpy` использует host `scrcpy` и `ffmpeg` для получения кадра, а
+`FRAME_SOURCE=minicap` читает minicap socket stream, если minicap установлен на
+устройстве.
 
 Подробный ledger по внедрению хранится в
 [docs/perception_roadmap.md](docs/perception_roadmap.md): там перечислены
@@ -1564,12 +1571,15 @@ python3 scripts/setup_doctor.py --latency
 Проверить скорость реакции ADB capture отдельно:
 
 ```bash
-python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 ```
 
-Если `adb_screencap` показывает больше `180 ms`, этот путь подходит для меню и
-tutorial, но не для fast gameplay. Для быстрых игр нужен `FRAME_SOURCE=replay`,
-`scrcpy` или `minicap` и `PERCEPTION_MODE=local_only`.
+Если `adb_screencap` или `adb_raw_screencap` показывает больше `180 ms`, этот
+путь подходит для меню и tutorial, но не для fast gameplay. Для быстрых игр
+нужен `FRAME_SOURCE=replay`, реально проверенный streaming source или `minicap`
+и `PERCEPTION_MODE=local_only`.
 
 ### Быстрый Старт
 
@@ -1984,7 +1994,7 @@ guard-правилами.
 Текущий локальный статус:
 
 ```text
-363 passed, 1 skipped без OPENROUTER_API_KEY
+371 passed, 1 skipped без OPENROUTER_API_KEY
 Clean requirements venv: pip check passed, PIL/numpy/cv2/httpx/appium imported
 Live ADB local-first smoke: passed on emulator-5554 with real screenshot/template matching
 Live OpenRouter CV+Builder smoke: passed on emulator-5554 with xiaomi/mimo-v2.5 и 4 real ADB exploration actions
@@ -1992,6 +2002,7 @@ Local-first module coverage gate: 100.00%
 Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
 Subway Surfers local runner smoke: passed on device 47d33e1c
+Profile live validation: 4 installed profiles passed launch/capture/safe exploration on device 47d33e1c
 ```
 
 Полный прогон:
@@ -2234,7 +2245,7 @@ git push origin beta-0.1.15c
 | `CV_MODEL_ATTEMPTS` | Количество retry на одну Vision model при transient empty/null provider response; по умолчанию `3` |
 | `CV_MAX_TOKENS` | Token budget для Vision response; по умолчанию `4096`, чтобы reasoning models успевали вернуть финальный JSON |
 | `PERCEPTION_MODE` | Default `local_first`; поддерживает `llm_first`, `shadow`, `local_first`, `local_only` |
-| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap`; `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
+| `FRAME_SOURCE` | `adb`, `adb_raw`, `screenrecord`, `replay`, `scrcpy`, `minicap`; `adb_raw` убирает Android PNG encode, `screenrecord` требует `ffmpeg`, `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
 | `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |
 | `ENABLE_TEMPLATE_PROVIDER` | Включить template matching |
 | `ENABLE_UIAUTOMATOR_PROVIDER` | Включить Android text/UI candidates |

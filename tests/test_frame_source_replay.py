@@ -8,13 +8,20 @@ import pytest
 
 import config
 from core.frame_source import (
+    AdbRawFrameSource,
     AdbScreencapSource,
+    AdbScreenrecordFrameSource,
+    Frame,
     MinicapFrameSource,
     ReplayFrameSource,
     ScrcpyFrameSource,
     create_frame_source,
+    frame_to_image,
     png_dimensions,
+    raw_screencap_to_rgb,
+    rgb_to_png,
     timestamp_ms,
+    _pop_complete_jpegs,
     _read_minicap_banner,
     _recv_exact,
 )
@@ -32,6 +39,13 @@ def _jpeg(width: int, height: int, color: str = "white") -> bytes:
     buf = BytesIO()
     image.save(buf, format="JPEG")
     return buf.getvalue()
+
+
+def _raw_screencap(width: int, height: int, pixels: bytes, *, header_size: int = 16) -> bytes:
+    header = struct.pack("<III", width, height, 1)
+    if header_size == 16:
+        header += struct.pack("<I", 1)
+    return header + pixels
 
 
 def test_png_dimensions_reads_png_header():
@@ -134,12 +148,71 @@ def test_adb_frame_source_raw_screencap_success_and_errors(monkeypatch):
         asyncio.run(AdbScreencapSource().latest_frame())
 
 
+def test_raw_screencap_to_rgb_supports_android_headers_and_png_conversion():
+    rgba = bytes([
+        255, 0, 0, 255,
+        0, 255, 0, 255,
+        0, 0, 255, 255,
+        9, 8, 7, 255,
+    ])
+
+    width, height, rgb = raw_screencap_to_rgb(_raw_screencap(2, 2, rgba, header_size=16))
+
+    assert (width, height) == (2, 2)
+    assert rgb == bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 9, 8, 7])
+    assert png_dimensions(rgb_to_png(width, height, rgb)) == (2, 2)
+
+    width12, height12, rgb12 = raw_screencap_to_rgb(_raw_screencap(2, 2, rgba, header_size=12))
+    assert (width12, height12, rgb12) == (2, 2, rgb)
+
+    with pytest.raises(RuntimeError, match="Unsupported"):
+        raw_screencap_to_rgb(struct.pack("<III", 1, 1, 99) + b"\x00" * 4)
+
+    with pytest.raises(RuntimeError, match="truncated"):
+        raw_screencap_to_rgb(struct.pack("<III", 2, 2, 1) + b"\x00" * 4)
+
+
+def test_adb_raw_frame_source_returns_rgb_frame_without_device_png(monkeypatch):
+    rgba = bytes([10, 20, 30, 255, 40, 50, 60, 255])
+    raw = _raw_screencap(2, 1, rgba)
+
+    class FakeProc:
+        returncode = 0
+        stderr = b""
+
+        async def communicate(self):
+            return raw, b""
+
+    async def fake_exec(*args, **kwargs):
+        assert args[-2:] == ("exec-out", "screencap")
+        return FakeProc()
+
+    monkeypatch.setattr(asyncio, "create_subprocess_exec", fake_exec)
+
+    frame = asyncio.run(AdbRawFrameSource(serial="emu", include_png=False).latest_frame())
+
+    assert frame.source_name == "adb_raw"
+    assert (frame.width, frame.height) == (2, 1)
+    assert frame.rgb_or_bgr_array == bytes([10, 20, 30, 40, 50, 60])
+    assert frame.png_bytes is None
+    assert frame_to_image(frame).getpixel((1, 0)) == (40, 50, 60)
+
+    frame_png = Frame(1, 2, 1, frame.rgb_or_bgr_array, None, "adb_raw", 0.1)
+    assert png_dimensions(rgb_to_png(frame_png.width, frame_png.height, frame_png.rgb_or_bgr_array)) == (2, 1)
+
+
 def test_create_frame_source_factory_and_invalid_png(monkeypatch, tmp_path):
     path = tmp_path / "frame.png"
     path.write_bytes(_png(10, 10))
 
     monkeypatch.setattr(config, "FRAME_SOURCE", "adb")
     assert isinstance(create_frame_source(action=object()), AdbScreencapSource)
+
+    monkeypatch.setattr(config, "FRAME_SOURCE", "adb_raw")
+    assert isinstance(create_frame_source(), AdbRawFrameSource)
+
+    monkeypatch.setattr(config, "FRAME_SOURCE", "screenrecord")
+    assert isinstance(create_frame_source(), AdbScreenrecordFrameSource)
 
     monkeypatch.setattr(config, "FRAME_SOURCE", "replay")
     assert isinstance(create_frame_source(replay_paths=[path]), ReplayFrameSource)
@@ -154,6 +227,21 @@ def test_create_frame_source_factory_and_invalid_png(monkeypatch, tmp_path):
         png_dimensions(b"bad")
 
     assert timestamp_ms() > 0
+
+
+def test_screenrecord_jpeg_stream_parser_keeps_latest_boundaries():
+    first = _jpeg(2, 2, "red")
+    second = _jpeg(3, 3, "blue")
+    buffer = bytearray(b"noise" + first + b"partial")
+
+    frames = _pop_complete_jpegs(buffer)
+    assert frames == [first]
+    assert bytes(buffer) == b""
+
+    buffer.extend(b"partial" + second[:5])
+    assert _pop_complete_jpegs(buffer) == []
+    buffer.extend(second[5:])
+    assert _pop_complete_jpegs(buffer) == [second]
 
 
 def test_scrcpy_frame_source_captures_with_scrcpy_and_ffmpeg(tmp_path):

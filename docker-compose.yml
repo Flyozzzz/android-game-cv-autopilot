@@ -19,6 +19,8 @@ services:
       DEVICE_FARM: "${DEVICE_FARM:-local}"
       LOCAL_DEVICE: "${LOCAL_DEVICE:-auto}"
       ADB_SERVER_SOCKET: "${ADB_SERVER_SOCKET:-tcp:host.docker.internal:5037}"
+      FRAME_SOURCE: "${FRAME_SOURCE:-adb}"
+      FRAME_SOURCE_INCLUDE_PNG: "${FRAME_SOURCE_INCLUDE_PNG:-true}"
       PURCHASE_MODE: "preview"
       GOOGLE_PHONE_MODE: "manual"
       PYTHONUNBUFFERED: "1"

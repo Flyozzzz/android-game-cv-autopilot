@@ -31,6 +31,10 @@ class FastRunnerDetector:
 
     def decide(self, screenshot_png: bytes) -> FastRunnerDecision:
         image = Image.open(BytesIO(screenshot_png)).convert("RGB")
+        return self.decide_image(image)
+
+    def decide_image(self, image: Image.Image) -> FastRunnerDecision:
+        image = image.convert("RGB")
         width, height = image.size
         if width <= 0 or height <= 0:
             return FastRunnerDecision("none", "empty image", (0.0, 0.0, 0.0))

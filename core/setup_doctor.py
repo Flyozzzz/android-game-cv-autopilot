@@ -11,7 +11,7 @@ import subprocess
 import sys
 from typing import Callable
 
-from core.reaction_benchmark import benchmark_adb_screencap
+from core.reaction_benchmark import benchmark_capture_source
 
 
 CommandRunner = Callable[[list[str], int], subprocess.CompletedProcess]
@@ -52,10 +52,18 @@ def run_setup_doctor(
     checks.append(_check_openrouter(env))
     latency = None
     if include_latency and devices:
-        try:
-            latency = benchmark_adb_screencap(serial=devices[0], adb_path=adb_path, samples=3, runner=runner).to_dict()
-        except Exception as exc:
-            latency = {"status": "failed", "error": str(exc)}
+        latency = {}
+        for source in ("adb", "adb_raw"):
+            try:
+                latency[source] = benchmark_capture_source(
+                    source=source,
+                    serial=devices[0],
+                    adb_path=adb_path,
+                    samples=3,
+                    runner=runner,
+                ).to_dict()
+            except Exception as exc:
+                latency[source] = {"status": "failed", "error": str(exc)}
     status = _overall_status(checks)
     return {
         "status": status,

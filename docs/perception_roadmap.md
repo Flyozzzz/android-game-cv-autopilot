@@ -19,7 +19,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 | PR 0 | Config / feature flags | Done | `config.py`, `.env.example` | `tests/test_config_feature_flags.py` |
 | PR 1 | Metrics + trace schema | Done | `core/metrics.py`, `core/action_engine.py`, `core/cv_engine.py`, `scenarios/fast_runner_gameplay.py` | `tests/test_metrics.py`, `tests/test_fast_runner_gameplay.py` |
 | PR 2 | InputScheduler + cooldowns | Done | `core/input_scheduler.py`, `core/action_engine.py`, `scenarios/fast_runner_gameplay.py` | `tests/test_input_scheduler.py`, `tests/test_fast_runner.py`, `tests/test_fast_runner_gameplay.py` |
-| PR 3 | FrameSource + replay/scrcpy/minicap | Done | `core/frame_source.py` | `tests/test_frame_source_replay.py` |
+| PR 3 | FrameSource + replay/scrcpy/minicap | Done | `core/frame_source.py`, `core/reaction_benchmark.py`, `scripts/reaction_benchmark.py` | `tests/test_frame_source_replay.py`, `tests/test_setup_doctor.py` |
 | PR 4 | Profile zones + ROISelector | Done | `core/game_profiles.py`, `core/perception/roi.py` | `tests/test_game_profiles.py`, `tests/test_roi_selector.py` |
 | PR 5 | ScreenStability | Done | `core/perception/screen_stability.py` | `tests/test_screen_stability.py` |
 | PR 6 | Element model + finder | Done | `core/perception/element.py`, `core/perception/fusion.py`, `core/perception/finder.py`, `core/perception/defaults.py`, `core/perception/providers/base.py` | `tests/test_element_fusion.py`, `tests/test_element_finder_contract.py`, `tests/test_default_perception_factory.py`, `tests/test_cv_autopilot.py` |
@@ -40,8 +40,8 @@ roadmap. Each item must include real code and tests before it is marked done.
 - Menu/tutorial perception tries local providers before LLM when enabled.
 - Repeated screens reuse cached perception before providers/LLM.
 - Replay-based tests run without a connected Android device.
-- Scrcpy and minicap frame-source selections have real backends and explicit
-  runtime prerequisite errors.
+- ADB PNG, ADB raw, replay, scrcpy, screenrecord, and minicap frame-source
+  selections have real backends and explicit runtime prerequisite errors.
 - Dashboard overlay shows ROI, boxes, confidence, source, latency, and whether
   LLM was called.
 
@@ -72,11 +72,18 @@ roadmap. Each item must include real code and tests before it is marked done.
 
 ### PR 3: FrameSource + Replay
 
-- Added `Frame`, `FrameSource`, `AdbScreencapSource`, `ReplayFrameSource`,
+- Added `Frame`, `FrameSource`, `AdbScreencapSource`,
+  `AdbRawFrameSource`, `AdbScreenrecordFrameSource`, `ReplayFrameSource`,
   `ScrcpyFrameSource`, and `MinicapFrameSource`.
 - Replay source reads PNG frames from disk, advances deterministically, and can
   repeat or hold the final frame.
 - ADB source can wrap an existing action object's `screenshot()` method.
+- ADB raw source uses `adb exec-out screencap` without `-p`, parses Android
+  raw framebuffer headers, and lets local providers consume RGB bytes without a
+  PNG roundtrip.
+- Screenrecord source starts an H.264 stream and attempts local ffmpeg decoding;
+  this is real code, but device support must be verified because some Android
+  builds buffer screenrecord output until the stream closes.
 - Scrcpy source invokes host `scrcpy` and `ffmpeg` to produce a PNG frame.
 - Minicap source forwards the minicap localabstract socket and decodes JPEG
   frames from the minicap banner/frame-size protocol.
@@ -231,7 +238,7 @@ roadmap. Each item must include real code and tests before it is marked done.
 - `python3 -m compileall -q core scenarios tests config.py`
   - Result: passed
 - `python3 -m pytest -q`
-  - Result: `363 passed, 1 skipped` without `OPENROUTER_API_KEY`
+  - Result: `371 passed, 1 skipped` without `OPENROUTER_API_KEY`
 - Clean requirements venv
   - Command: create a temporary venv, `pip install -r requirements.txt`,
     `pip check`, import `PIL`, `numpy`, `cv2`, `httpx`, and `appium`.
@@ -254,3 +261,21 @@ roadmap. Each item must include real code and tests before it is marked done.
 - Real Android game smoke, device `47d33e1c`, package `com.kiloo.subwaysurf`
   - Result: launched Subway Surfers, captured real 1080x2400 frame through `AdbScreencapSource`, processed it through `ScreenStabilityDetector` and `RunnerPlugin`, no LLM call used.
   - Latest observed: `png_bytes=992727`, `capture_latency_ms=741.568`, `stability_reason=warming_up`, `runner_state=JUMPING`, `runner_gesture=up`, `lane_scores=(71.59, 60.81, 69.25)`.
+- Real capture benchmarks on 2026-04-28:
+  - `python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb`
+    -> `adb_screencap avg_ms=126.539`, status `usable`.
+  - `python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5 --source adb_raw`
+    -> `adb_raw_screencap avg_ms=137.974`, status `usable`.
+  - `python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw`
+    -> `adb_raw_screencap avg_ms=700.510`, status `slow`.
+  - `ScrcpyFrameSource` with host `scrcpy 3.3.4` produced a real 1080x2400
+    frame, but the one-shot record/extract path measured about `4968 ms`; it is
+    not a realtime loop.
+  - `AdbScreenrecordFrameSource` did not produce a live decoded frame on
+    `47d33e1c` within 10 seconds because this device buffers screenrecord
+    output until close. Do not use it for fast gameplay on this phone.
+- Profile live validation on `47d33e1c`:
+  - `python3 scripts/profile_live_validator.py --serial 47d33e1c --profile talking-tom --profile subway-surfers --profile candy-crush --profile brawl-stars --output reports/profile_validation --promote validated`
+  - Result: 4 passed, 0 failed. Each run launched the app, measured `adb` and
+    `adb_raw` capture, executed four safe exploration gestures, saved five
+    frames, and wrote a ScreenGraph with four transitions.

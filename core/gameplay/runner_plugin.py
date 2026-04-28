@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from core.fast_runner import FastRunnerDecision, FastRunnerDetector
-from core.frame_source import Frame
+from core.frame_source import Frame, frame_to_image
 from core.gameplay.base_plugin import GameplayAction
 
 
@@ -64,8 +64,13 @@ class RunnerPlugin:
                 frame_index=self._frame_index,
             )
 
-        png = frame.png_bytes if isinstance(frame, Frame) else frame
-        if not png:
+        try:
+            base_decision = (
+                self.detector.decide_image(frame_to_image(frame))
+                if isinstance(frame, Frame)
+                else self.detector.decide(frame)
+            )
+        except Exception:
             self.state = RunnerState.UNKNOWN
             return RunnerPluginDecision(
                 action=GameplayAction("none", "missing frame", confidence=0.0),
@@ -76,7 +81,6 @@ class RunnerPlugin:
                 frame_index=self._frame_index,
             )
 
-        base_decision = self.detector.decide(png)
         velocity = self._velocity(base_decision.lane_scores)
         danger = self._danger(base_decision, velocity)
         action = self._action_from_decision(base_decision, danger)

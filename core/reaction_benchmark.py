@@ -7,6 +7,8 @@ import subprocess
 from time import perf_counter
 from typing import Callable
 
+from core.frame_source import raw_screencap_to_rgb
+
 
 CommandRunner = Callable[[list[str], int], subprocess.CompletedProcess]
 
@@ -70,6 +72,59 @@ def benchmark_adb_screencap(
         status=status,
         recommendation=recommendation,
     )
+
+
+def benchmark_adb_raw_screencap(
+    *,
+    serial: str = "",
+    adb_path: str = "adb",
+    samples: int = 3,
+    runner: CommandRunner | None = None,
+) -> BenchmarkResult:
+    runner = runner or _run
+    timings: list[float] = []
+    for _ in range(max(1, int(samples or 1))):
+        cmd = [adb_path]
+        if serial:
+            cmd += ["-s", serial]
+        cmd += ["exec-out", "screencap"]
+        started = perf_counter()
+        proc = runner(cmd, 20)
+        if proc.returncode != 0:
+            raise RuntimeError(_decode(proc.stderr) or "adb raw screencap benchmark failed")
+        stdout = proc.stdout if isinstance(proc.stdout, bytes) else str(proc.stdout).encode()
+        raw_screencap_to_rgb(stdout)
+        elapsed = (perf_counter() - started) * 1000.0
+        timings.append(elapsed)
+    avg = statistics.fmean(timings)
+    p95 = _percentile(timings, 0.95)
+    status, recommendation = classify_capture_latency(avg)
+    return BenchmarkResult(
+        name="adb_raw_screencap",
+        samples=len(timings),
+        avg_ms=round(avg, 3),
+        p95_ms=round(p95, 3),
+        max_ms=round(max(timings), 3),
+        target_ms=80.0,
+        status=status,
+        recommendation=recommendation,
+    )
+
+
+def benchmark_capture_source(
+    *,
+    source: str = "adb",
+    serial: str = "",
+    adb_path: str = "adb",
+    samples: int = 3,
+    runner: CommandRunner | None = None,
+) -> BenchmarkResult:
+    source = str(source or "adb").strip().lower()
+    if source == "adb":
+        return benchmark_adb_screencap(serial=serial, adb_path=adb_path, samples=samples, runner=runner)
+    if source == "adb_raw":
+        return benchmark_adb_raw_screencap(serial=serial, adb_path=adb_path, samples=samples, runner=runner)
+    raise ValueError(f"Unsupported benchmark source: {source}")
 
 
 def _percentile(values: list[float], fraction: float) -> float:

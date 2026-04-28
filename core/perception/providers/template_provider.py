@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from io import BytesIO
 from pathlib import Path
 from typing import Iterable
 
 from PIL import Image, ImageChops, ImageStat
 
+from core.frame_source import frame_to_image
 from core.perception.element import ElementCandidate
 from core.perception.providers.base import ProviderContext
 from core.perception.roi import PixelBox
@@ -28,9 +28,10 @@ class TemplateProvider:
         self.registry = registry
 
     async def find(self, context: ProviderContext) -> list[ElementCandidate]:
-        if not context.frame.png_bytes:
+        try:
+            screen = frame_to_image(context.frame)
+        except RuntimeError:
             return []
-        screen = Image.open(BytesIO(context.frame.png_bytes)).convert("RGB")
         candidates: list[ElementCandidate] = []
         negative_only_ids = {
             negative_id

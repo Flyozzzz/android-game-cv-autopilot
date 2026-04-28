@@ -50,7 +50,7 @@ CV_MAX_TOKENS = int(os.getenv("CV_MAX_TOKENS", "4096"))
 CV_AUTOPILOT_MAX_STEPS = int(os.getenv("CV_AUTOPILOT_MAX_STEPS", "45"))
 CV_GAME_TUTORIAL_MAX_STEPS = int(os.getenv("CV_GAME_TUTORIAL_MAX_STEPS", "120"))
 CV_PURCHASE_PREVIEW_MAX_STEPS = int(os.getenv("CV_PURCHASE_PREVIEW_MAX_STEPS", "45"))
-CV_COORDINATE_SCALE = os.getenv("CV_COORDINATE_SCALE", "1.53").strip()
+CV_COORDINATE_SCALE = os.getenv("CV_COORDINATE_SCALE", "").strip()
 CV_FAILURE_FALLBACK_TO_MANUAL = _env_bool("CV_FAILURE_FALLBACK_TO_MANUAL", "0")
 CV_INSTALL_GOAL_TEMPLATE = os.getenv("CV_INSTALL_GOAL_TEMPLATE", "").strip()
 CV_TUTORIAL_GOAL_TEMPLATE = os.getenv("CV_TUTORIAL_GOAL_TEMPLATE", "").strip()
@@ -77,8 +77,9 @@ PERCEPTION_MODE = _env_choice(
 FRAME_SOURCE = _env_choice(
     "FRAME_SOURCE",
     "adb",
-    ("adb", "replay", "scrcpy", "minicap"),
+    ("adb", "adb_raw", "screenrecord", "replay", "scrcpy", "minicap"),
 )
+FRAME_SOURCE_INCLUDE_PNG = _env_bool("FRAME_SOURCE_INCLUDE_PNG", "1")
 ACTION_MODE = _env_choice(
     "ACTION_MODE",
     "menu",

@@ -1,10 +1,12 @@
+import struct
 import subprocess
 
-from core.reaction_benchmark import benchmark_adb_screencap, classify_capture_latency
+from core.reaction_benchmark import benchmark_adb_raw_screencap, benchmark_adb_screencap, classify_capture_latency
 from core.setup_doctor import doctor_report_markdown, run_setup_doctor
 
 
 PNG = b"\x89PNG\r\n\x1a\n" + b"x" * 128
+RAW = struct.pack("<IIII", 1, 1, 1, 1) + bytes([1, 2, 3, 255])
 
 
 def test_reaction_benchmark_classifies_adb_capture_latency():
@@ -22,6 +24,9 @@ def test_reaction_benchmark_classifies_adb_capture_latency():
     assert all(call[:3] == ["adb-test", "-s", "emu"] for call in calls)
     assert classify_capture_latency(220)[0] == "slow"
 
+    raw_result = benchmark_adb_raw_screencap(serial="emu", adb_path="adb-test", samples=2, runner=lambda args, timeout: subprocess.CompletedProcess(args, 0, stdout=RAW, stderr=b""))
+    assert raw_result.name == "adb_raw_screencap"
+
 
 def test_setup_doctor_reports_actionable_environment_state():
     def runner(args, timeout):
@@ -32,6 +37,8 @@ def test_setup_doctor_reports_actionable_environment_state():
             return subprocess.CompletedProcess(args, 0, stdout=b"List of devices attached\nemu device model:Pixel\n", stderr=b"")
         if "screencap -p" in joined:
             return subprocess.CompletedProcess(args, 0, stdout=PNG, stderr=b"")
+        if "exec-out screencap" in joined:
+            return subprocess.CompletedProcess(args, 0, stdout=RAW, stderr=b"")
         return subprocess.CompletedProcess(args, 1, stdout=b"", stderr=b"bad")
 
     result = run_setup_doctor(
@@ -44,5 +51,6 @@ def test_setup_doctor_reports_actionable_environment_state():
 
     assert result["status"] in {"ok", "warn"}
     assert result["devices"] == ["emu"]
-    assert result["latency"]["name"] == "adb_screencap"
+    assert result["latency"]["adb"]["name"] == "adb_screencap"
+    assert result["latency"]["adb_raw"]["name"] == "adb_raw_screencap"
     assert "Setup Doctor" in report

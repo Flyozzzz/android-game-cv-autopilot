@@ -591,7 +591,7 @@ def _default_settings() -> dict:
         "manualTimeout": getattr(config, "MANUAL_CONTROL_TIMEOUT_SECONDS", 600),
         "cvFallbackManual": True,
         "cvModels": ",".join(getattr(config, "CV_MODELS", [])),
-        "cvCoordinateScale": getattr(config, "CV_COORDINATE_SCALE", "1.53"),
+        "cvCoordinateScale": getattr(config, "CV_COORDINATE_SCALE", ""),
         "cvTutorialMaxSteps": getattr(config, "CV_GAME_TUTORIAL_MAX_STEPS", 120),
         "cvPurchaseMaxSteps": getattr(config, "CV_PURCHASE_PREVIEW_MAX_STEPS", 45),
         "cvInstallBasePrompt": getattr(config, "CV_INSTALL_GOAL_TEMPLATE", "") or INSTALL_GOAL_TEMPLATE,

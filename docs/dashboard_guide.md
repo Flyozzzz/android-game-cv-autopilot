@@ -100,10 +100,14 @@ For reaction-speed decisions:
 
 ```bash
 python3 scripts/reaction_benchmark.py --serial emulator-5554 --samples 5
+python3 scripts/reaction_benchmark.py --serial 47d33e1c --samples 5 --source adb_raw
+python3 scripts/profile_live_validator.py --serial 47d33e1c --profile subway-surfers --promote validated
 ```
 
 ADB screencap above roughly `180 ms` is a menu/tutorial path, not a fast-gameplay
-path. Use `replay`, `scrcpy`, or `minicap` and keep active gameplay local-only.
+path. `adb_raw` may reduce latency by avoiding Android PNG encoding, but if it
+is still above `180 ms`, use `replay`, a validated streaming source, or
+`minicap` and keep active gameplay local-only.
 
 ## MCP In Practice
 

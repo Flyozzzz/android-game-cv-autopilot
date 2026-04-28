@@ -2,11 +2,12 @@ from io import BytesIO
 
 from PIL import Image, ImageDraw
 
+from core.frame_source import Frame
 from core.gameplay.runner_plugin import RunnerPlugin, RunnerState
 from core.gameplay.base_plugin import GameplayAction
 
 
-def _png_with_obstacles(*lanes: int) -> bytes:
+def _image_with_obstacles(*lanes: int) -> Image.Image:
     image = Image.new("RGB", (300, 600), "white")
     draw = ImageDraw.Draw(image)
     lane_width = 80
@@ -15,9 +16,19 @@ def _png_with_obstacles(*lanes: int) -> bytes:
         x1 = x_pad + lane * lane_width + 12
         x2 = x1 + 56
         draw.rectangle((x1, 360, x2, 500), fill="black")
+    return image
+
+
+def _png_with_obstacles(*lanes: int) -> bytes:
+    image = _image_with_obstacles(*lanes)
     buf = BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _raw_frame_with_obstacles(*lanes: int) -> Frame:
+    image = _image_with_obstacles(*lanes)
+    return Frame(1, image.width, image.height, image.tobytes(), None, "adb_raw", 0.1)
 
 
 def test_runner_plugin_starts_running_when_lane_is_clear():
@@ -40,6 +51,15 @@ def test_runner_plugin_emits_lane_change_with_cooldown_key():
     assert decision.state == RunnerState.LANE_SWITCHING
     assert decision.danger is True
     assert decision.action.confidence > 0
+
+
+def test_runner_plugin_uses_raw_rgb_frame_without_png():
+    plugin = RunnerPlugin()
+
+    decision = plugin.decide(_raw_frame_with_obstacles(0, 1))
+
+    assert decision.action.gesture == "right"
+    assert decision.state == RunnerState.LANE_SWITCHING
 
 
 def test_runner_plugin_emits_jump_state_when_all_lanes_are_blocked():

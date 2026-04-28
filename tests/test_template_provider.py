@@ -38,6 +38,19 @@ def _frame(image: Image.Image) -> Frame:
     )
 
 
+def _raw_frame(image: Image.Image) -> Frame:
+    rgb = image.convert("RGB").tobytes()
+    return Frame(
+        timestamp_ms=1,
+        width=image.width,
+        height=image.height,
+        rgb_or_bgr_array=rgb,
+        png_bytes=None,
+        source_name="adb_raw",
+        latency_ms=0.1,
+    )
+
+
 def _template_file(tmp_path, name: str, image: Image.Image):
     path = tmp_path / name
     path.write_bytes(_png(image))
@@ -233,6 +246,24 @@ def test_template_provider_returns_empty_without_png_and_skips_large_template(tm
 
     assert empty == []
     assert too_large == []
+
+
+def test_template_provider_uses_rgb_frame_without_png(tmp_path):
+    screen = Image.new("RGB", (40, 40), "white")
+    draw = ImageDraw.Draw(screen)
+    draw.rectangle((12, 14, 21, 23), fill="green")
+    template_path = _template_file(tmp_path, "green.png", Image.new("RGB", (10, 10), "green"))
+    provider = TemplateProvider(
+        TemplateRegistry({
+            "green_button": TemplateSpec(id="green_button", paths=(str(template_path),), threshold=0.99)
+        })
+    )
+
+    candidates = asyncio.run(provider.find(ProviderContext(frame=_raw_frame(screen), goal="tap green")))
+
+    assert len(candidates) == 1
+    assert candidates[0].bbox == (12, 14, 22, 24)
+    assert candidates[0].source == "template"
 
 
 def test_template_provider_handles_missing_negative_spec(tmp_path):
