@@ -23,7 +23,15 @@ pytestmark = [pytest.mark.integration, pytest.mark.live_adb]
 
 
 def _adb_path() -> str:
-    return os.getenv("ADB_PATH") or shutil.which("adb") or "adb"
+    configured = os.getenv("ADB_PATH", "").strip()
+    if configured:
+        if shutil.which(configured) or os.path.exists(configured):
+            return configured
+        pytest.skip(f"ADB_PATH={configured} is not available")
+    adb = shutil.which("adb")
+    if not adb:
+        pytest.skip("ADB executable is not available")
+    return adb
 
 
 def _connected_devices() -> list[str]:

@@ -39,6 +39,22 @@ def test_dashboard_fastapi_auth_and_state_endpoint(monkeypatch):
     assert authenticated.json()["methods"]["stages"]
 
 
+def test_dashboard_fastapi_noauth_login_page_cannot_trap_user(monkeypatch):
+    monkeypatch.setattr(server.config, "DASHBOARD_AUTH_ENABLED", False)
+    monkeypatch.setattr(server, "_adb_devices", lambda: [])
+
+    client = TestClient(server.create_app(server.DashboardService()))
+
+    root = client.get("/")
+    assert root.status_code == 200
+    assert root.headers["cache-control"] == "no-store"
+    assert 'id="logoutBtn"' in root.text
+
+    stale_login_submit = client.post("/api/login", json={"username": "wrong", "password": "wrong"})
+    assert stale_login_submit.status_code == 200
+    assert stale_login_submit.json()["ok"] is True
+
+
 def test_ci_workflow_runs_secret_scan_tests_and_uploads_coverage():
     workflow = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
 

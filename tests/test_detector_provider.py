@@ -109,6 +109,7 @@ def test_detector_provider_reports_onnxruntime_unavailable(monkeypatch, tmp_path
 
 
 def test_detector_provider_runs_fake_onnx_session(monkeypatch, tmp_path):
+    pytest.importorskip("numpy", exc_type=ImportError)
     model = tmp_path / "model.onnx"
     model.write_bytes(b"model")
 
@@ -200,7 +201,7 @@ def test_detector_provider_ignores_bad_detection_shapes():
 
 
 def test_detector_provider_parse_onnx_output_and_input_shape_helpers():
-    np = pytest.importorskip("numpy")
+    np = pytest.importorskip("numpy", exc_type=ImportError)
 
     invalid = _parse_onnx_output(np.zeros((2, 2, 2, 2)), 100, 100, [])
     parsed = _parse_onnx_output(

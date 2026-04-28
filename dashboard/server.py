@@ -647,6 +647,8 @@ class DashboardService:
     def _login(self, payload: dict) -> tuple[dict, list[tuple[str, str]], int]:
         username = str(payload.get("username") or "")
         password = str(payload.get("password") or "")
+        if not _dashboard_auth_enabled():
+            return {"ok": True, "username": username or _dashboard_username()}, [], 200
         if not _login_matches(username, password):
             return {"error": "Invalid dashboard username or password"}, [], 401
         token = _create_session(username)
@@ -1063,6 +1065,7 @@ def _file_response(path: Path) -> Response:
     return FileResponse(
         path,
         media_type=mimetypes.guess_type(str(path))[0] or "application/octet-stream",
+        headers={"Cache-Control": "no-store"},
     )
 
 
