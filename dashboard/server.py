@@ -44,6 +44,14 @@ from dashboard.cv_bridge import (  # noqa: E402
     plan_cv_action,
     run_cv_goal,
 )
+from dashboard.api_vision import (  # noqa: E402
+    create_roi_from_payload,
+    export_label_from_payload,
+    list_template_library,
+    save_template_from_payload,
+    vision_inspector_payload,
+)
+from dashboard.api_builder import build_autopilot_from_payload, builder_state  # noqa: E402
 
 
 ADB_PATH = os.getenv("ADB_PATH") or shutil.which("adb") or "adb"
@@ -619,6 +627,15 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 query = parse_qs(parsed.query)
                 serial = _select_serial((query.get("serial") or [""])[0])
                 self._send_screenshot(serial)
+            elif parsed.path == "/api/vision/inspector":
+                query = parse_qs(parsed.query)
+                serial_value = (query.get("serial") or [""])[0]
+                serial = _select_serial(serial_value) if serial_value else ""
+                self._send_json(vision_inspector_payload(serial=serial))
+            elif parsed.path == "/api/vision/templates":
+                self._send_json(list_template_library())
+            elif parsed.path == "/api/builder/state":
+                self._send_json(builder_state())
             else:
                 self.send_error(404)
         except Exception as e:
@@ -667,6 +684,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
                 self._send_json(self._cv_plan(payload))
             elif parsed.path == "/api/cv/run":
                 self._send_json(self._cv_run(payload))
+            elif parsed.path == "/api/vision/templates":
+                self._send_json(self._vision_save_template(payload))
+            elif parsed.path == "/api/vision/roi":
+                self._send_json(create_roi_from_payload(payload))
+            elif parsed.path == "/api/vision/labels":
+                self._send_json(export_label_from_payload(payload))
+            elif parsed.path == "/api/builder/build":
+                self._send_json(build_autopilot_from_payload(payload, adb_path=ADB_PATH))
             elif parsed.path == "/api/recordings":
                 self._send_json(self._save_recording(payload))
             elif parsed.path == "/api/recordings/replay":
@@ -1080,7 +1105,14 @@ class DashboardHandler(BaseHTTPRequestHandler):
             adb_path=ADB_PATH,
         ))
 
-    def _send_screenshot(self, serial: str) -> None:
+    def _vision_save_template(self, payload: dict) -> dict:
+        screenshot = None
+        if not (payload.get("screenshotBase64") or payload.get("imageBase64")):
+            serial = _select_serial(str(payload.get("serial") or ""))
+            screenshot = self._screenshot_bytes(serial)
+        return save_template_from_payload(payload, screenshot_bytes=screenshot)
+
+    def _screenshot_bytes(self, serial: str) -> bytes:
         proc = subprocess.run(
             [ADB_PATH, "-s", serial, "exec-out", "screencap", "-p"],
             cwd=ROOT,
@@ -1090,12 +1122,16 @@ class DashboardHandler(BaseHTTPRequestHandler):
         )
         if proc.returncode != 0:
             raise RuntimeError(proc.stderr.decode(errors="ignore"))
+        return proc.stdout
+
+    def _send_screenshot(self, serial: str) -> None:
+        screenshot = self._screenshot_bytes(serial)
         self.send_response(200)
         self.send_header("Content-Type", "image/png")
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Content-Length", str(len(proc.stdout)))
+        self.send_header("Content-Length", str(len(screenshot)))
         self.end_headers()
-        self.wfile.write(proc.stdout)
+        self.wfile.write(screenshot)
 
     def _send_file(self, path: Path) -> None:
         if not path.exists() or not path.is_file():

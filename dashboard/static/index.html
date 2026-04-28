@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Android Game CV Autopilot</title>
     <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/vision_overlay.css" />
+    <link rel="stylesheet" href="/static/autopilot_builder.css" />
   </head>
   <body>
     <div class="app-shell">
@@ -21,6 +23,8 @@
           <a href="#mcp" data-i18n="nav.mcp">MCP</a>
           <a href="#manual" data-i18n="nav.manual">Manual</a>
           <a href="#cv-bench" data-i18n="nav.cvbench">CV Bench</a>
+          <a href="#vision-inspector" data-i18n="nav.inspector">Inspector</a>
+          <a href="#autopilot-builder" data-i18n="nav.builder">Builder</a>
           <a href="#project" data-i18n="nav.project">Project</a>
           <a href="#profiles" data-i18n="nav.profiles">Profiles</a>
           <a href="#guide" data-i18n="nav.guide">Guide</a>
@@ -309,12 +313,19 @@
               <span>device_text</span>
               <span>cv_plan_next_action</span>
               <span>cv_run_goal</span>
+              <span>vision_inspector_state</span>
+              <span>list_vision_templates</span>
+              <span>save_vision_template</span>
+              <span>create_vision_roi</span>
+              <span>export_vision_label</span>
               <span>list_game_profiles</span>
               <span>save_game_profile</span>
               <span>delete_game_profile</span>
               <span>list_presets</span>
               <span>save_preset</span>
               <span>delete_preset</span>
+              <span>autopilot_builder_state</span>
+              <span>build_autopilot</span>
               <span>manual_continue</span>
             </div>
           </article>
@@ -411,6 +422,152 @@
               <button id="cvRunGoalBtn" class="primary" data-i18n="button.cvRunGoal">Run CV Goal</button>
             </div>
             <pre id="cvTestOutput" class="logbox" data-i18n="cvtest.outputPlaceholder">CV result JSON appears here.</pre>
+          </article>
+
+          <article id="vision-inspector" class="panel span-12 vision-inspector">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="vision.title">Vision Inspector</h2>
+                <p data-i18n="vision.body">Debug panel for the latest perception decision: ROI, provider candidates, selected element, and latency.</p>
+              </div>
+              <div class="inline-actions">
+                <span id="visionInspectorStatus" class="pill neutral" data-i18n="vision.status.idle">Idle</span>
+                <button id="visionInspectorRefreshBtn" class="ghost" data-i18n="button.refreshInspector">Refresh Inspector</button>
+              </div>
+            </div>
+            <div class="vision-help">
+              <div>
+                <h3 data-i18n="vision.how.title">How to use</h3>
+                <ol>
+                  <li data-i18n="vision.how.step1">Run a CV goal or automation step first so the engine writes a perception trace.</li>
+                  <li data-i18n="vision.how.step2">Click Refresh Inspector to load the latest screenshot, ROI, candidates, selected element, and timings.</li>
+                  <li data-i18n="vision.how.step3">Drag on the screenshot to draw a custom ROI/template box when the engine did not select the right area.</li>
+                  <li data-i18n="vision.how.step4">Use Save Template or Create ROI only when the green or purple box is correct.</li>
+                </ol>
+              </div>
+              <div class="vision-legend" aria-label="Vision overlay legend">
+                <span><i class="legend-swatch roi"></i><b data-i18n="vision.legend.roi">Orange</b><em data-i18n="vision.legend.roi.desc">active ROI</em></span>
+                <span><i class="legend-swatch candidate"></i><b data-i18n="vision.legend.candidate">Blue</b><em data-i18n="vision.legend.candidate.desc">provider candidates</em></span>
+                <span><i class="legend-swatch selected"></i><b data-i18n="vision.legend.selected">Green</b><em data-i18n="vision.legend.selected.desc">selected element</em></span>
+                <span><i class="legend-swatch drawn"></i><b data-i18n="vision.legend.drawn">Purple</b><em data-i18n="vision.legend.drawn.desc">manual drawn box</em></span>
+              </div>
+            </div>
+            <div class="vision-layout">
+              <div class="vision-shot-wrap">
+                <img id="visionInspectorShot" alt="Android screen with perception overlay" data-i18n-alt="vision.imageAlt" />
+                <svg id="visionInspectorOverlay" class="vision-overlay" viewBox="0 0 1 1" preserveAspectRatio="none"></svg>
+              </div>
+              <div class="vision-side">
+                <div class="metric-grid">
+                  <div><span data-i18n="vision.frameSource">Frame source</span><strong id="visionFrameSource">-</strong></div>
+                  <div><span data-i18n="vision.llmCalled">LLM called</span><strong id="visionLlmCalled">-</strong></div>
+                  <div><span data-i18n="vision.providers">Providers</span><strong id="visionProviders">-</strong></div>
+                  <div><span data-i18n="vision.selected">Selected</span><strong id="visionSelected">-</strong></div>
+                </div>
+                <div class="vision-editor">
+                  <label><span data-i18n="vision.templateId">Template id</span><input id="visionTemplateId" data-i18n-placeholder="placeholder.templateId" placeholder="play_button" /></label>
+                  <label><span data-i18n="vision.namespace">Namespace</span><input id="visionTemplateNamespace" data-i18n-placeholder="placeholder.templateNamespace" placeholder="common" /></label>
+                  <label><span data-i18n="vision.templateThreshold">Template threshold</span><input id="visionTemplateThreshold" type="number" min="0" max="1" step="0.01" value="0.82" /></label>
+                  <button id="visionSaveTemplateBtn" class="secondary" data-i18n="button.saveTemplate">Save Template</button>
+                  <label><span data-i18n="vision.roiZone">ROI zone</span><input id="visionRoiName" data-i18n-placeholder="placeholder.roiZone" placeholder="bottom_buttons" /></label>
+                  <button id="visionCreateRoiBtn" class="secondary" data-i18n="button.createRoiFromSelected">Create ROI From Selected</button>
+                  <button id="visionClearDrawnBoxBtn" class="ghost" data-i18n="button.clearDrawnBox">Clear Drawn Box</button>
+                  <button id="visionExportLabelBtn" class="ghost" data-i18n="button.exportLabel">Export Label</button>
+                  <p class="vision-editor-note" data-i18n="vision.editorHint">Manual drawing wins over the selected candidate for template and ROI saving.</p>
+                </div>
+                <div class="vision-saved">
+                  <div class="vision-saved-head">
+                    <strong data-i18n="vision.saved.title">Saved artifact</strong>
+                    <button id="visionOpenSavedProfileBtn" class="ghost small" disabled data-i18n="button.openProfileJson">Open Profile JSON</button>
+                  </div>
+                  <p data-i18n="vision.saved.body">After saving, paths and normalized ROI data appear here.</p>
+                  <pre id="visionSaveResult" class="logbox mini" data-i18n="vision.saved.placeholder">Nothing saved yet.</pre>
+                </div>
+                <div class="vision-template-library">
+                  <div class="vision-saved-head">
+                    <strong data-i18n="vision.templates.title">Templates</strong>
+                    <button id="visionRefreshTemplatesBtn" class="ghost small" data-i18n="button.refreshTemplates">Refresh Templates</button>
+                  </div>
+                  <p data-i18n="vision.templates.body">Saved templates from assets/templates/registry.json appear here.</p>
+                  <div id="visionTemplateList" class="vision-template-list" data-i18n="vision.templates.empty">No templates loaded yet.</div>
+                </div>
+                <pre id="visionLatency" class="logbox mini" data-i18n="vision.latencyPlaceholder">Latency appears here.</pre>
+              </div>
+            </div>
+          </article>
+        </section>
+
+        <section id="autopilot-builder" class="grid">
+          <article class="panel span-12 autopilot-builder-panel">
+            <div class="panel-head">
+              <div>
+                <h2 data-i18n="builder.title">LLM Autopilot Builder</h2>
+                <p data-i18n="builder.body">Create, validate, save, and repair reusable local-first autopilot bundles from a single goal prompt.</p>
+              </div>
+              <div class="inline-actions">
+                <span id="builderStatus" class="pill neutral" data-i18n="builder.status.idle">Idle</span>
+                <button id="builderRefreshBtn" class="ghost" data-i18n="button.refreshBuilder">Refresh Builder</button>
+              </div>
+            </div>
+            <div class="builder-layout">
+              <div class="builder-form">
+                <label class="textarea-label">
+                  <span data-i18n="builder.prompt">Goal prompt</span>
+                  <textarea id="builderPrompt" rows="6" data-i18n-placeholder="placeholder.builderPrompt" placeholder="Create an autopilot for Subway Surfers. Start a run and survive for 60 seconds. No purchases, no login, no multiplayer."></textarea>
+                </label>
+                <div class="form-grid">
+                  <label>
+                    <span data-i18n="builder.mode">Builder mode</span>
+                    <select id="builderMode">
+                      <option value="create">create</option>
+                      <option value="improve">improve</option>
+                      <option value="repair">repair</option>
+                      <option value="validate">validate</option>
+                      <option value="shadow">shadow</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span data-i18n="builder.package">Package</span>
+                    <input id="builderPackage" data-i18n-placeholder="placeholder.profilePackage" placeholder="com.example.game" />
+                  </label>
+                  <label>
+                    <span data-i18n="builder.models">Vision models</span>
+                    <input id="builderModels" data-i18n-placeholder="placeholder.builderModels" placeholder="xiaomi/mimo-v2.5" />
+                  </label>
+                  <label>
+                    <span data-i18n="builder.framePaths">Replay frame paths</span>
+                    <input id="builderFramePaths" data-i18n-placeholder="placeholder.builderFrames" placeholder="/tmp/frame_001.png,/tmp/frame_002.png" />
+                  </label>
+                </div>
+                <div class="toggle-row">
+                  <label><input id="builderLaunchApp" type="checkbox" checked /> <span data-i18n="builder.launchApp">Launch installed app before build</span></label>
+                  <label><input id="builderLiveValidation" type="checkbox" /> <span data-i18n="builder.liveValidation">Run live validation after replay</span></label>
+                </div>
+                <div class="action-row left">
+                  <button id="builderBuildBtn" class="primary" data-i18n="button.buildAutopilot">Build Autopilot</button>
+                  <button id="builderLoadLastBtn" class="secondary" data-i18n="button.loadBuilderState">Load Saved Bundles</button>
+                </div>
+              </div>
+              <div class="builder-side">
+                <div class="builder-safety">
+                  <h3 data-i18n="builder.safety.title">Safety gates</h3>
+                  <ul>
+                    <li data-i18n="builder.safety.purchase">No real purchases or payment confirmations.</li>
+                    <li data-i18n="builder.safety.fast">Fast gameplay remains local_only.</li>
+                    <li data-i18n="builder.safety.review">Risky patches require human review.</li>
+                    <li data-i18n="builder.safety.downloads">Downloads and installs require allowlist or user-provided APKs.</li>
+                  </ul>
+                </div>
+                <div class="builder-bundles">
+                  <div class="vision-saved-head">
+                    <strong data-i18n="builder.bundles.title">Saved bundles</strong>
+                    <span id="builderBundleCount" class="pill neutral">0</span>
+                  </div>
+                  <div id="builderBundleList" class="builder-bundle-list" data-i18n="builder.bundles.empty">No autopilot bundles saved yet.</div>
+                </div>
+              </div>
+            </div>
+            <pre id="builderOutput" class="logbox tall" data-i18n="builder.output.placeholder">Builder output JSON appears here.</pre>
           </article>
         </section>
 
@@ -547,11 +704,21 @@
             </div>
             <div class="guide-card">
               <span class="guide-kicker">07</span>
+              <h3 data-i18n="guide.inspector.title">Vision Inspector</h3>
+              <p data-i18n="guide.inspector.body">Inspect the latest screenshot with ROI, provider candidates, selected element, and latency. Draw a manual box to save templates and ROI zones.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">08</span>
+              <h3 data-i18n="guide.builder.title">Autopilot Builder</h3>
+              <p data-i18n="guide.builder.body">Write one goal prompt to generate GoalSpec, safety policy, screen graph, profile, ROI, templates, scenario, bundle, and validation reports.</p>
+            </div>
+            <div class="guide-card">
+              <span class="guide-kicker">09</span>
               <h3 data-i18n="guide.safety.title">Safety</h3>
               <p data-i18n="guide.safety.body">Real purchases and final payment confirmations remain blocked. Google phone verification is manual and user-controlled.</p>
             </div>
             <div class="guide-card">
-              <span class="guide-kicker">08</span>
+              <span class="guide-kicker">10</span>
               <h3 data-i18n="guide.tests.title">Tests</h3>
               <p data-i18n="guide.tests.body">Run Checks compiles active code, runs pytest, and enforces the 100% gate for deterministic MCP/CV/constructor modules.</p>
             </div>
@@ -584,5 +751,7 @@
 
     <div id="toast" class="toast"></div>
     <script src="/static/app.js"></script>
+    <script src="/static/vision_inspector.js"></script>
+    <script src="/static/autopilot_builder.js"></script>
   </body>
 </html>

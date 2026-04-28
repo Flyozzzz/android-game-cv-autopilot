@@ -3,11 +3,16 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
+import re
 from typing import Any
 
 from loguru import logger
 
 from core.cv_engine import CVEngine, UIActionPlan
+from core.frame_source import Frame, timestamp_ms
+from core.metrics import TraceEvent, new_run_id, record_trace
+from core.perception.defaults import build_default_element_finder
+from core.perception.finder import ElementFinder
 
 
 RISKY_TARGET_WORDS = (
@@ -76,6 +81,7 @@ class CVAutopilot:
         risky_target_words: tuple[str, ...] | None = None,
         blocker_words: tuple[str, ...] | None = None,
         max_blocker_hits: int = 4,
+        element_finder: ElementFinder | None = None,
     ):
         self.action = action
         self.cv = cv or CVEngine()
@@ -88,6 +94,7 @@ class CVAutopilot:
         self.max_blocker_hits = max(1, int(max_blocker_hits or 1))
         self._blocker_hits = 0
         self.recent_actions: list[str] = []
+        self._element_finder = element_finder
 
     async def run(
         self,
@@ -96,6 +103,7 @@ class CVAutopilot:
     ) -> AutopilotResult:
         values = available_values or {}
         steps: list[AutopilotStep] = []
+        run_id = new_run_id()
 
         for index in range(1, self.max_steps + 1):
             screenshot = await self.action.screenshot()
@@ -106,6 +114,16 @@ class CVAutopilot:
                 recent_actions=self.recent_actions,
             )
             outcome = await self._execute_plan(plan, screenshot, values)
+            record_ui_action_plan_trace(
+                plan,
+                screenshot,
+                goal=goal,
+                outcome=outcome,
+                run_id=run_id,
+                index=index,
+                frame_source="adb",
+                policy_result=self._policy_result(plan, outcome),
+            )
             step = AutopilotStep(
                 index=index,
                 action=plan.action,
@@ -139,6 +157,13 @@ class CVAutopilot:
                 self._blocker_hits = 0
 
         return AutopilotResult(status="max_steps", steps=steps, reason="step limit reached")
+
+    def _policy_result(self, plan: UIActionPlan, outcome: str) -> str:
+        if self._is_risky(plan):
+            return "blocked_risky_stop" if outcome == "done" else "blocked_risky"
+        if outcome.startswith("fail"):
+            return "failed"
+        return "allowed"
 
     async def _execute_plan(
         self,
@@ -217,11 +242,41 @@ class CVAutopilot:
         if not plan.target:
             return None
 
-        element = await self.cv.find_element(screenshot, plan.target)
-        if not element or element.confidence < self.tap_confidence:
+        point = await self._resolve_with_element_finder(plan.target, screenshot)
+        if not point:
             return None
-        point = self._scale_point(int(element.x), int(element.y), available_values)
-        return self._correct_named_point(plan, point)
+        return self._correct_named_point(
+            plan,
+            self._scale_point(point[0], point[1], available_values),
+        )
+
+    async def _resolve_with_element_finder(
+        self,
+        target: str,
+        screenshot: bytes,
+    ) -> tuple[int, int] | None:
+        finder = self._get_element_finder()
+        if finder is None:
+            return None
+        width, height = CVEngine._get_png_dimensions(screenshot)
+        frame = Frame(
+            timestamp_ms=timestamp_ms(),
+            width=width,
+            height=height,
+            rgb_or_bgr_array=None,
+            png_bytes=screenshot,
+            source_name="adb",
+            latency_ms=0.0,
+        )
+        result = await finder.find(frame, goal=target)
+        if not result.candidate or result.candidate.confidence < self.tap_confidence:
+            return None
+        return result.candidate.center
+
+    def _get_element_finder(self) -> ElementFinder | None:
+        if self._element_finder is None:
+            self._element_finder = build_default_element_finder(action=self.action, cv=self.cv)
+        return self._element_finder
 
     def _correct_named_point(
         self,
@@ -260,10 +315,10 @@ class CVAutopilot:
             x1, y1, x2, y2 = self._swipe_points(plan, direction, available_values)
             await self.action.swipe(x1, y1, x2, y2, 500)
             return f"swiped:{direction}"
-        if direction == "down":
+        if direction == "down" and hasattr(self.action, "swipe_down"):
             await self.action.swipe_down()
             return "swiped:down"
-        if direction == "up":
+        if direction == "up" and hasattr(self.action, "swipe_up"):
             await self.action.swipe_up()
             return "swiped:up"
         return "fail:unknown_swipe_direction"
@@ -425,3 +480,115 @@ class CVAutopilot:
             [plan.target or "", plan.reason or "", plan.text or ""]
         ).lower()
         return any(word in haystack for word in self.blocker_words)
+
+
+def record_ui_action_plan_trace(
+    plan: UIActionPlan,
+    screenshot: bytes,
+    *,
+    goal: str,
+    outcome: str = "",
+    run_id: str | None = None,
+    index: int | None = None,
+    frame_source: str = "adb",
+    profile_id: str = "",
+    screen_id: str = "",
+    policy_result: str = "",
+) -> None:
+    """Expose legacy CV planner decisions to the dashboard Vision Inspector."""
+
+    action_type = (plan.action or "wait").strip().lower()
+    if action_type in {"done", "fail"}:
+        return
+
+    width, height = _trace_dimensions(screenshot)
+    point = _point_from_outcome(outcome) or _point_from_plan(plan)
+    selected_candidate = None
+    candidates: list[dict[str, Any]] = []
+    if point and width > 0 and height > 0:
+        x, y = _clamped_point(point, width, height)
+        selected_candidate = {
+            "name": plan.target or action_type,
+            "bbox": _bbox_around_point(x, y, width, height),
+            "center": (x, y),
+            "confidence": 0.72,
+            "source": "llm_plan",
+            "text": plan.reason or None,
+            "screen_id": screen_id or None,
+            "latency_ms": 0.0,
+        }
+        candidates.append(selected_candidate)
+
+    action_payload: dict[str, Any] = {
+        "type": action_type,
+        "target": plan.target,
+        "reason": plan.reason,
+        "outcome": outcome,
+    }
+    if index is not None:
+        action_payload["index"] = index
+    if point:
+        action_payload["x"], action_payload["y"] = point
+    if plan.direction:
+        action_payload["direction"] = plan.direction
+    if plan.key:
+        action_payload["key"] = plan.key
+    if plan.text_value_key:
+        action_payload["text_value_key"] = plan.text_value_key
+
+    record_trace(
+        TraceEvent(
+            run_id=run_id or new_run_id(),
+            profile_id=profile_id,
+            screen_id=screen_id,
+            frame_source=frame_source,
+            goal=goal,
+            roi=None,
+            providers_called=["llm_plan"],
+            candidates=candidates,
+            selected_candidate=selected_candidate,
+            action=action_payload,
+            policy_result=policy_result,
+            latency_breakdown={},
+            llm_called=True,
+        )
+    )
+
+
+def _trace_dimensions(screenshot: bytes) -> tuple[int, int]:
+    try:
+        return CVEngine._get_png_dimensions(screenshot)
+    except Exception:
+        return 0, 0
+
+
+def _point_from_outcome(outcome: str) -> tuple[int, int] | None:
+    match = re.search(r"(?:tapped|typed_signup_url):(-?\d+),(-?\d+)", str(outcome or ""))
+    if not match:
+        return None
+    return int(match.group(1)), int(match.group(2))
+
+
+def _point_from_plan(plan: UIActionPlan) -> tuple[int, int] | None:
+    if int(plan.x or 0) > 0 and int(plan.y or 0) > 0:
+        return int(plan.x), int(plan.y)
+    return None
+
+
+def _clamped_point(point: tuple[int, int], width: int, height: int) -> tuple[int, int]:
+    x, y = point
+    return max(0, min(width, int(x))), max(0, min(height, int(y)))
+
+
+def _bbox_around_point(
+    x: int,
+    y: int,
+    width: int,
+    height: int,
+    radius: int = 44,
+) -> tuple[int, int, int, int]:
+    x1 = max(0, min(width - 1, x - radius))
+    y1 = max(0, min(height - 1, y - radius))
+    x2 = max(x1 + 1, min(width, x + radius))
+    y2 = max(y1 + 1, min(height, y + radius))
+    return x1, y1, x2, y2

@@ -22,6 +22,7 @@ def test_resolves_builtin_profile_by_package():
 
     assert profile.id == "candy-crush"
     assert profile.gameplay_strategy == "match3_solver"
+    assert profile.screen_zones["match3_board"] == (0.07, 0.30, 0.93, 0.78)
 
 
 def test_custom_profile_requires_package_for_reliable_runs():
@@ -64,7 +65,11 @@ def test_custom_profiles_are_loaded_from_dashboard_directory(monkeypatch, tmp_pa
   "gameplay_strategy": "match3_solver",
   "proven": true,
   "max_tutorial_steps": 44,
-  "max_purchase_steps": 12
+  "max_purchase_steps": 12,
+  "screen_zones": {
+    "board": [0.1, 0.2, 0.9, 0.8],
+    "bad": [0.9, 0.2, 0.1, 0.8]
+  }
 }
 """,
         encoding="utf-8",
@@ -78,6 +83,7 @@ def test_custom_profiles_are_loaded_from_dashboard_directory(monkeypatch, tmp_pa
     assert profile.id == "space-puzzle"
     assert profile.gameplay_strategy == "match3_solver"
     assert profile.max_purchase_steps == 12
+    assert profile.screen_zones == {"board": (0.1, 0.2, 0.9, 0.8)}
 
 
 def test_profile_mapping_defaults_and_invalid_values_are_normalized(tmp_path):
@@ -89,6 +95,13 @@ def test_profile_mapping_defaults_and_invalid_values_are_normalized(tmp_path):
         "blockerWords": None,
         "gameplayStrategy": "unknown",
         "maxTutorialSteps": "bad",
+        "screenZones": {
+            "": [0.1, 0.2, 0.3, 0.4],
+            "short": [0.1, 0.2, 0.3],
+            "not-a-box": "0.1,0.2,0.3,0.4",
+            "bad-number": [0.1, "x", 0.3, 0.4],
+            "outside": [-0.1, 0.2, 0.3, 0.4],
+        },
     })
     scalar_profile = game_profile_from_mapping({"id": "Scalar", "aliases": 7})
 

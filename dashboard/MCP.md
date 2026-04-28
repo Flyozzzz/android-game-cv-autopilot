@@ -41,6 +41,8 @@ Available tool groups:
 - Recordings: `list_recordings`, `read_recording`, `save_recording`, `replay_recording`
 - Constructor: `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset`
 - CV: `cv_plan_next_action`, `cv_run_goal`
+- Vision Inspector: `vision_inspector_state`, `list_vision_templates`, `save_vision_template`, `create_vision_roi`, `export_vision_label`
+- Autopilot Builder: `autopilot_builder_state`, `build_autopilot`
 - Android control: `adb_devices`, `device_screenshot`, `device_tap`, `device_swipe`, `device_key`, `device_text`
 - Manual checkpoints: `manual_continue`
 
@@ -48,6 +50,16 @@ The web dashboard also includes a CV Test Bench in the Manual section. It uses
 the same `/api/cv/plan` and `/api/cv/run` endpoints as MCP, so an operator can
 type a goal prompt, inspect one planned action, or run a short guarded CV loop
 before saving a preset.
+
+Vision Inspector also shares the same API with MCP. A model can read the latest
+ROI/candidate overlay, inspect provider output, save a template from the latest
+screenshot, create a normalized ROI zone in a profile, or export a label JSON
+without touching dashboard source code.
+
+Autopilot Builder is also exposed over MCP. A model can read saved bundles and
+run a prompt-to-autopilot build that writes `autopilots/<id>/` artifacts,
+including GoalSpec, safety policy, screen graph, profile, ROI, template
+registry entries, scenario, replay/live reports, and version history.
 
 ## Smart Model Workflow
 
@@ -68,8 +80,13 @@ The model can use the tools in this order:
    CV prompt overrides, and safe preview settings.
 4. `device_screenshot`, `cv_plan_next_action`, and `cv_run_goal` to test what
    CV sees and how it behaves on the current screen.
-5. `run_checks` to verify project health after safe data-file changes.
-6. `start_safe_run`, `tail_run_log`, and `latest_report` to execute and observe
+5. `vision_inspector_state` to inspect the latest selected ROI/candidate and
+   `save_vision_template` / `create_vision_roi` to turn a useful region into
+   reusable local perception assets.
+6. `autopilot_builder_state` and `build_autopilot` to generate a reusable
+   autopilot bundle from a goal prompt.
+7. `run_checks` to verify project health after safe data-file changes.
+8. `start_safe_run`, `tail_run_log`, and `latest_report` to execute and observe
    the guarded route.
 
 This lets a model configure automation for another game through MCP without

@@ -9,6 +9,7 @@ from loguru import logger
 
 import config
 from core.helpers import save_screenshot
+from core.metrics import GLOBAL_METRICS
 
 
 class ActionEngine:
@@ -119,26 +120,27 @@ class ActionEngine:
         Сделать скриншот устройства.
         Возвращает PNG-байты.
         """
-        png_bytes = await self._run_adb_raw(
-            "exec-out", "screencap", "-p", timeout=10
-        )
-        if not png_bytes or len(png_bytes) < 100:
-            logger.warning("Screenshot seems empty, retrying...")
-            await asyncio.sleep(0.5)
+        with GLOBAL_METRICS.timer("capture_ms"):
             png_bytes = await self._run_adb_raw(
                 "exec-out", "screencap", "-p", timeout=10
             )
-        self._screenshot_counter += 1
-        if png_bytes and len(png_bytes) > 24 and png_bytes[:8] == b'\x89PNG\r\n\x1a\n':
-            import struct
-            w = struct.unpack('>I', png_bytes[16:20])[0]
-            h = struct.unpack('>I', png_bytes[20:24])[0]
-            if w > 0 and h > 0:
-                self._real_screen_w = w
-                self._real_screen_h = h
-        if self.trace_enabled and self.trace_save_screenshots and png_bytes:
-            self._save_trace_screenshot(png_bytes)
-        return png_bytes
+            if not png_bytes or len(png_bytes) < 100:
+                logger.warning("Screenshot seems empty, retrying...")
+                await asyncio.sleep(0.5)
+                png_bytes = await self._run_adb_raw(
+                    "exec-out", "screencap", "-p", timeout=10
+                )
+            self._screenshot_counter += 1
+            if png_bytes and len(png_bytes) > 24 and png_bytes[:8] == b'\x89PNG\r\n\x1a\n':
+                import struct
+                w = struct.unpack('>I', png_bytes[16:20])[0]
+                h = struct.unpack('>I', png_bytes[20:24])[0]
+                if w > 0 and h > 0:
+                    self._real_screen_w = w
+                    self._real_screen_h = h
+            if self.trace_enabled and self.trace_save_screenshots and png_bytes:
+                self._save_trace_screenshot(png_bytes)
+            return png_bytes
 
     async def screenshot_and_save(self, prefix: str = "screen") -> tuple[bytes, str]:
         """Сделать скриншот и сохранить в файл."""
@@ -153,9 +155,10 @@ class ActionEngine:
     async def tap(self, x: int, y: int, pause: float = 0.3):
         """Тап по координатам."""
         logger.info(f"TAP ({x}, {y})")
-        await self._run_adb("shell", "input", "tap", str(x), str(y))
-        if pause > 0:
-            await asyncio.sleep(pause)
+        with GLOBAL_METRICS.timer("action_ms"):
+            await self._run_adb("shell", "input", "tap", str(x), str(y))
+            if pause > 0:
+                await asyncio.sleep(pause)
 
     async def double_tap(self, x: int, y: int):
         """Двойной тап."""
@@ -176,14 +179,17 @@ class ActionEngine:
         x1: int, y1: int,
         x2: int, y2: int,
         duration_ms: int = 300,
+        pause: float = 0.3,
     ):
         """Свайп от точки к точке."""
         logger.info(f"SWIPE ({x1},{y1}) -> ({x2},{y2}) {duration_ms}ms")
-        await self._run_adb(
-            "shell", "input", "swipe",
-            str(x1), str(y1), str(x2), str(y2), str(duration_ms),
-        )
-        await asyncio.sleep(0.3)
+        with GLOBAL_METRICS.timer("action_ms"):
+            await self._run_adb(
+                "shell", "input", "swipe",
+                str(x1), str(y1), str(x2), str(y2), str(duration_ms),
+            )
+            if pause > 0:
+                await asyncio.sleep(pause)
 
     async def swipe_up(self, duration_ms: int = 400):
         """Свайп вверх (скроллим вниз)."""

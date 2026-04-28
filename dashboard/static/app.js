@@ -91,6 +91,9 @@ function applyTranslations(root = document) {
   root.querySelectorAll("[data-i18n-title]").forEach((node) => {
     node.setAttribute("title", t(node.dataset.i18nTitle));
   });
+  root.querySelectorAll("[data-i18n-alt]").forEach((node) => {
+    node.setAttribute("alt", t(node.dataset.i18nAlt));
+  });
   document.documentElement.lang = state.lang;
   document.body.dataset.help = state.helpMode ? "on" : "off";
   const ru = $("langRu");
@@ -570,6 +573,9 @@ async function saveProjectFile() {
   await refreshProjectFiles();
 }
 
+window.loadProjectFile = loadProjectFile;
+window.refreshProjectFiles = refreshProjectFiles;
+
 async function loadSelectedRecording() {
   const path = $("recordingSelect").value;
   if (!path) {
@@ -651,6 +657,8 @@ function cvTestPayload() {
     serial: selectedSerial(),
     goal,
     values,
+    openrouterKey: getInput("openrouterKey"),
+    models: getInput("cvModels"),
     maxSteps: Number(getInput("cvTestMaxSteps") || 5),
   };
 }

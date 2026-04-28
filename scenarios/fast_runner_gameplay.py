@@ -7,7 +7,9 @@ import time
 from loguru import logger
 
 import config
-from core.fast_runner import FastRunnerDetector
+from core.gameplay.runner_plugin import RunnerPlugin
+from core.input_scheduler import InputScheduler
+from core.metrics import record_latency
 from scenarios.base import BaseScenario
 
 
@@ -19,40 +21,45 @@ class FastRunnerGameplayScenario(BaseScenario):
     async def run(self) -> bool:
         seconds = float(getattr(config, "FAST_GAMEPLAY_SECONDS", 35.0))
         frame_delay = float(getattr(config, "FAST_GAMEPLAY_FRAME_DELAY", 0.05))
-        detector = FastRunnerDetector()
+        runner = RunnerPlugin()
+        scheduler = InputScheduler(self.action, mode="fast")
 
         logger.info("=" * 50)
         logger.info(f"SCENARIO: Fast Runner Gameplay ({seconds:.1f}s)")
         logger.info("=" * 50)
 
         width, height = self._screen_size()
-        gestures = {
-            "left": (int(width * 0.55), int(height * 0.74), int(width * 0.25), int(height * 0.74)),
-            "right": (int(width * 0.45), int(height * 0.74), int(width * 0.75), int(height * 0.74)),
-            "up": (int(width * 0.50), int(height * 0.76), int(width * 0.50), int(height * 0.42)),
-            "down": (int(width * 0.50), int(height * 0.42), int(width * 0.50), int(height * 0.78)),
-        }
-
         deadline = time.monotonic() + seconds
-        last_gesture_at = 0.0
         gesture_count = 0
         frame_count = 0
 
         while time.monotonic() < deadline:
+            loop_started = time.perf_counter()
             frame_count += 1
             screenshot = await self.action.screenshot()
-            decision = detector.decide(screenshot)
-            now = time.monotonic()
-            if decision.gesture != "none" and now - last_gesture_at >= 0.22:
-                x1, y1, x2, y2 = gestures[decision.gesture]
-                logger.info(
-                    f"Runner gesture={decision.gesture} scores="
-                    f"{tuple(round(s, 1) for s in decision.lane_scores)} "
-                    f"reason={decision.reason}"
+            decision = runner.decide(screenshot)
+            if not decision.action.is_noop:
+                x1, y1, x2, y2 = runner.gesture_points(width, height, decision.action.gesture)
+                result = await scheduler.swipe(
+                    x1,
+                    y1,
+                    x2,
+                    y2,
+                    duration_ms=90,
+                    cooldown_key=decision.action.cooldown_key,
                 )
-                await self.action.swipe(x1, y1, x2, y2, duration_ms=90)
-                last_gesture_at = now
-                gesture_count += 1
+                if result.executed:
+                    logger.info(
+                        f"Runner gesture={decision.action.gesture} state={decision.state.value} scores="
+                        f"{tuple(round(s, 1) for s in decision.lane_scores)} "
+                        f"velocity={tuple(round(s, 1) for s in decision.score_velocity)} "
+                        f"reason={decision.action.reason}"
+                    )
+                    gesture_count += 1
+            loop_total_ms = (time.perf_counter() - loop_started) * 1000.0
+            record_latency("loop_total_ms", loop_total_ms)
+            if loop_total_ms > 0:
+                record_latency("fps", 1000.0 / loop_total_ms)
             await asyncio.sleep(max(0.01, frame_delay))
 
         logger.success(

@@ -4,6 +4,7 @@ import subprocess
 import pytest
 
 from core.cv_engine import UIActionPlan
+from core.metrics import metrics_snapshot, reset_metrics
 from dashboard import cv_bridge
 from dashboard.cv_bridge import DashboardAdbAction
 
@@ -116,12 +117,32 @@ def test_payload_helpers_parse_values_models_and_recent_actions(monkeypatch):
     assert cv_bridge.payload_models({"models": []}) is None
     assert cv_bridge.payload_models({"models": 42}) is None
     assert cv_bridge.payload_api_key({"apiKey": "payload-key"}) == "payload-key"
+    assert cv_bridge.payload_api_key({"openrouterKey": "   "}) == "env-key"
     assert cv_bridge.payload_api_key({}) == "env-key"
     assert cv_bridge.payload_values({"values": 42}) == {}
     assert cv_bridge.payload_recent_actions({"recentActions": "bad"}) == []
 
 
+def test_require_vision_api_key_rejects_blank_before_adb(monkeypatch):
+    monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
+
+    assert cv_bridge.require_vision_api_key(" token ") == "token"
+    assert cv_bridge.payload_api_key({"openrouterKey": "   ", "apiKey": ""}) == ""
+
+    runner = RecordingRunner()
+    with pytest.raises(RuntimeError, match="Vision API key is required"):
+        asyncio.run(cv_bridge.plan_cv_action(
+            serial="emu",
+            goal="continue",
+            api_key="",
+            adb_path="adb-test",
+            runner=runner,
+        ))
+    assert runner.calls == []
+
+
 def test_plan_cv_action_uses_screenshot_and_returns_plan(monkeypatch):
+    reset_metrics()
     runner = RecordingRunner()
 
     class FakeCVEngine:
@@ -162,6 +183,11 @@ def test_plan_cv_action_uses_screenshot_and_returns_plan(monkeypatch):
     assert result["serial"] == "emu"
     assert result["plan"]["action"] == "tap"
     assert result["screen"]["png_bytes"] == len(PNG_1X1)
+    trace = metrics_snapshot()["latest_trace"]
+    assert trace["providers_called"] == ["llm_plan"]
+    assert trace["selected_candidate"]["name"] == "tap"
+    assert trace["selected_candidate"]["bbox"] == (0, 0, 1, 1)
+    assert trace["action"]["outcome"] == "planned"
 
 
 def test_run_cv_goal_stops_before_risky_purchase_actions(monkeypatch):
@@ -191,6 +217,7 @@ def test_run_cv_goal_stops_before_risky_purchase_actions(monkeypatch):
         serial="emu",
         goal="reach purchase preview",
         max_steps=5,
+        api_key="key",
         adb_path="adb-test",
         runner=runner,
     ))

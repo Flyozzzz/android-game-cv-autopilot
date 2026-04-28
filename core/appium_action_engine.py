@@ -78,9 +78,8 @@ class AppiumActionEngine:
         return result is not None
 
     # ══════════════════════════════════════════
-    # Скриншоты — ОТКЛЮЧЕНЫ (LambdaTest Node16 sharp bug)
-    # Все методы скриншотов возвращают пустые байты / заглушки.
-    # Навигация полностью через UIAutomator2 (tap_by_text, page_source).
+    # Скриншоты: local farm uses ADB screencap; remote farms use the safest
+    # vendor screenshot endpoint available for that provider.
     # ══════════════════════════════════════════
 
     async def screenshot(self) -> bytes:

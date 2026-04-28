@@ -33,6 +33,8 @@ def test_mcp_initialize_and_lists_tools():
         "write_project_file",
         "device_screenshot",
         "cv_plan_next_action",
+        "vision_inspector_state",
+        "build_autopilot",
         "save_game_profile",
         "save_preset",
     }
@@ -144,6 +146,12 @@ def test_mcp_tool_calls_route_to_dashboard_http(monkeypatch):
             return {"ok": True}
         if path == "/api/log":
             return {"log": "tail"}
+        if path.startswith("/api/vision/inspector"):
+            return {"frame": {"source": "adb"}, "overlay": {"candidates": []}}
+        if path == "/api/vision/templates" and method == "GET":
+            return {"templates": [{"id": "play_button", "namespace": "common"}], "total": 1}
+        if path == "/api/builder/state":
+            return {"bundles": [{"id": "demo"}], "models": ["xiaomi/mimo-v2.5"]}
         if path in {
             "/api/recordings/replay",
             "/api/device/tap",
@@ -152,6 +160,10 @@ def test_mcp_tool_calls_route_to_dashboard_http(monkeypatch):
             "/api/device/text",
             "/api/cv/plan",
             "/api/cv/run",
+            "/api/vision/templates",
+            "/api/vision/roi",
+            "/api/vision/labels",
+            "/api/builder/build",
             "/api/manual/continue",
         }:
             return {"ok": True, "path": path}
@@ -186,6 +198,13 @@ def test_mcp_tool_calls_route_to_dashboard_http(monkeypatch):
     assert _content_json(mcp_server.call_tool("device_text", {"text": "hello"}))["ok"]
     assert _content_json(mcp_server.call_tool("cv_plan_next_action", {"goal": "continue"}))["ok"]
     assert _content_json(mcp_server.call_tool("cv_run_goal", {"goal": "continue", "maxSteps": 2}))["ok"]
+    assert _content_json(mcp_server.call_tool("vision_inspector_state"))["frame"]["source"] == "adb"
+    assert _content_json(mcp_server.call_tool("list_vision_templates"))["total"] == 1
+    assert _content_json(mcp_server.call_tool("save_vision_template", {"templateId": "play", "bbox": [1, 2, 3, 4]}))["ok"]
+    assert _content_json(mcp_server.call_tool("create_vision_roi", {"profileId": "demo", "zoneName": "bottom_buttons"}))["ok"]
+    assert _content_json(mcp_server.call_tool("export_vision_label", {"profileId": "demo", "labelId": "play", "candidate": {"name": "play"}}))["ok"]
+    assert _content_json(mcp_server.call_tool("autopilot_builder_state"))["bundles"][0]["id"] == "demo"
+    assert _content_json(mcp_server.call_tool("build_autopilot", {"prompt": "build demo"}))["ok"]
     assert _content_json(mcp_server.call_tool("manual_continue"))["ok"]
     assert calls
 

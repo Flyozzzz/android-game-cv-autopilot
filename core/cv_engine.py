@@ -3,23 +3,74 @@ CV Engine — компьютерное зрение через Vision LLM (OpenR
 Анализирует скриншоты Android-устройства и находит UI-элементы.
 """
 import base64
+from io import BytesIO
 import json
 import os
 import re
 import struct
-from typing import Optional
+from time import perf_counter
+from typing import Any, Optional
 
 import httpx
 from loguru import logger
 from pydantic import BaseModel
 
 import config
+from core.metrics import GLOBAL_METRICS
 
 
 def _safe_snippet(text: str, limit: int = 2000) -> str:
     if text is None:
         return ""
     return str(text)[:limit]
+
+
+def _draw_sparse_coordinate_grid(image_bytes: bytes) -> bytes:
+    """Draw light rulers on the screenshot so Vision models can return better x/y coordinates."""
+
+    from PIL import Image, ImageDraw
+
+    image = Image.open(BytesIO(image_bytes)).convert("RGBA")
+    width, height = image.size
+    step = max(80, int(getattr(config, "CV_COORDINATE_GRID_STEP", 240) or 240))
+    overlay = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+
+    line_color = (0, 255, 255, 82)
+    label_fill = (0, 0, 0, 170)
+    label_text = (255, 255, 64, 255)
+
+    for x in _grid_positions(width, step):
+        draw.line([(x, 0), (x, height)], fill=line_color, width=2)
+        label_x = min(max(4, x + 4), max(4, width - 48))
+        _draw_grid_label(draw, f"x{x}", label_x, 6, label_fill, label_text)
+        _draw_grid_label(draw, f"x{x}", label_x, max(6, height - 24), label_fill, label_text)
+
+    for y in _grid_positions(height, step):
+        draw.line([(0, y), (width, y)], fill=line_color, width=2)
+        label_y = min(max(4, y + 4), max(4, height - 20))
+        _draw_grid_label(draw, f"y{y}", 6, label_y, label_fill, label_text)
+        _draw_grid_label(draw, f"y{y}", max(6, width - 58), label_y, label_fill, label_text)
+
+    combined = Image.alpha_composite(image, overlay).convert("RGB")
+    buffer = BytesIO()
+    combined.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def _grid_positions(limit: int, step: int) -> list[int]:
+    positions = list(range(0, max(1, limit), step))
+    edge = max(0, limit - 1)
+    if not positions or positions[-1] != edge:
+        positions.append(edge)
+    return positions
+
+
+def _draw_grid_label(draw: Any, text: str, x: int, y: int, fill: tuple[int, int, int, int], text_fill: tuple[int, int, int, int]) -> None:
+    width = max(28, len(text) * 7)
+    height = 16
+    draw.rectangle((x, y, x + width, y + height), fill=fill)
+    draw.text((x + 3, y + 2), text, fill=text_fill)
 
 
 class UIElement(BaseModel):
@@ -64,7 +115,7 @@ class CVEngine:
     """
 
     def __init__(self, api_key: str = None, models: list[str] = None):
-        self.api_key = api_key or config.OPENROUTER_API_KEY
+        self.api_key = str(api_key or config.OPENROUTER_API_KEY or "").strip()
         self.models = models or config.CV_MODELS
         self.current_model_index = 0
         self.client = httpx.AsyncClient(timeout=config.CV_REQUEST_TIMEOUT)
@@ -111,6 +162,23 @@ class CVEngine:
     def _encode_image(self, image_bytes: bytes) -> str:
         """Base64-кодировка изображения."""
         return base64.b64encode(image_bytes).decode("utf-8")
+
+    def _prepare_coordinate_vision_image(self, image_bytes: bytes) -> tuple[str, int, int, str]:
+        """Return an image payload with a sparse coordinate ruler for coordinate-sensitive CV."""
+
+        width, height = self._get_png_dimensions(image_bytes)
+        note = (
+            "The screenshot has a sparse coordinate ruler overlay: cyan guide lines and "
+            "yellow x/y labels on the image edges. Use those labels to estimate precise "
+            "coordinates in the original full-resolution screenshot."
+        )
+        if not getattr(config, "CV_COORDINATE_GRID", True):
+            return self._encode_image(image_bytes), width, height, ""
+        try:
+            return self._encode_image(_draw_sparse_coordinate_grid(image_bytes)), width, height, note
+        except Exception as exc:
+            logger.warning(f"Failed to draw CV coordinate grid, using raw screenshot: {exc}")
+            return self._encode_image(image_bytes), width, height, ""
 
     def _extract_json_from_text(self, text: str) -> dict | None:
         """
@@ -198,9 +266,16 @@ class CVEngine:
                 f"_call_vision: skipping (image_b64 too short: {len(image_b64 or '')} chars)"
             )
             raise RuntimeError("No screenshot available — cannot call Vision LLM")
+        if not self.api_key:
+            raise RuntimeError(
+                "OpenRouter / Vision API key is required. Set OPENROUTER_API_KEY "
+                "or enter the key in the dashboard Keys section."
+            )
 
         self._call_count += 1
         call_id = self._call_count
+        metric_started = perf_counter()
+        GLOBAL_METRICS.increment("provider_llm_calls")
 
         last_errors: list[str] = []
         for attempt in range(len(self.models)):
@@ -270,6 +345,10 @@ class CVEngine:
                     status_code=resp.status_code,
                     error=None,
                 )
+                GLOBAL_METRICS.record_latency(
+                    "provider_llm_ms",
+                    (perf_counter() - metric_started) * 1000.0,
+                )
                 return content
 
             except httpx.TimeoutException:
@@ -302,6 +381,10 @@ class CVEngine:
                 continue
 
         suffix = f" Last errors: {' | '.join(last_errors[-3:])}" if last_errors else ""
+        GLOBAL_METRICS.record_latency(
+            "provider_llm_ms",
+            (perf_counter() - metric_started) * 1000.0,
+        )
         raise RuntimeError(f"All {len(self.models)} CV models failed.{suffix}")
 
     def _save_cv_trace(
@@ -352,14 +435,14 @@ class CVEngine:
         - найти все интерактивные элементы с координатами
         - предложить следующее действие
         """
-        image_b64 = self._encode_image(screenshot_bytes)
-        img_w, img_h = self._get_png_dimensions(screenshot_bytes)
+        image_b64, img_w, img_h, coordinate_note = self._prepare_coordinate_vision_image(screenshot_bytes)
 
         prompt = f"""You are an Android UI automation assistant. Analyze this screenshot.
 
 CONTEXT: {context or 'General analysis'}
 TARGET: {target or 'Find all interactive elements'}
 SCREEN RESOLUTION: {img_w}x{img_h}
+COORDINATE_OVERLAY: {coordinate_note or 'none'}
 
 Return ONLY valid JSON (no extra text) in this exact format:
 {{
@@ -386,6 +469,7 @@ RULES:
 - confidence: 0.0 to 1.0
 - If TARGET is specified, put matching elements FIRST
 - Find ALL interactive elements (buttons, inputs, links, icons)
+- For icons/buttons, use the center of the visible element, not the nearest label.
 - Coordinates must be relative to full {img_w}x{img_h} resolution"""
 
         response_text = await self._call_vision(prompt, image_b64)
@@ -436,8 +520,7 @@ RULES:
             logger.warning("plan_next_ui_action: no screenshot — returning wait action")
             return UIActionPlan(action="wait", wait_seconds=2.0, reason="no_screenshot")
 
-        image_b64 = self._encode_image(screenshot_bytes)
-        img_w, img_h = self._get_png_dimensions(screenshot_bytes)
+        image_b64, img_w, img_h, coordinate_note = self._prepare_coordinate_vision_image(screenshot_bytes)
         recent = recent_actions or []
         values_json = json.dumps(available_values, ensure_ascii=False)
         recent_json = json.dumps(recent[-8:], ensure_ascii=False)
@@ -449,6 +532,7 @@ GOAL: {goal}
 AVAILABLE_VALUES_JSON: {values_json}
 RECENT_ACTIONS_JSON: {recent_json}
 SCREEN_RESOLUTION: {img_w}x{img_h}
+COORDINATE_OVERLAY: {coordinate_note or 'none'}
 
 Return ONLY valid JSON:
 {{
@@ -465,7 +549,9 @@ Return ONLY valid JSON:
 }}
 
 Rules:
-- Prefer target-based actions (set target) over raw coordinates.
+- For tap/type on a visible element, include both target and precise x/y center coordinates.
+- Use the coordinate ruler labels on the image edges to estimate x/y. Do not guess from the resized chat preview.
+- For icons/buttons, return the center of the visible icon/button. For a top-right gear, x should usually be near the right edge.
 - Use type + text_value_key whenever possible.
 - If screen asks for email OR phone and phone is available, prefer phone.
 - Avoid repeating the same failing action from RECENT_ACTIONS_JSON.
@@ -508,12 +594,12 @@ Rules:
             logger.warning(f"find_element: no screenshot — cannot find '{element_description}'")
             return None
 
-        image_b64 = self._encode_image(screenshot_bytes)
-        img_w, img_h = self._get_png_dimensions(screenshot_bytes)
+        image_b64, img_w, img_h, coordinate_note = self._prepare_coordinate_vision_image(screenshot_bytes)
 
         prompt = f"""Find this element on the Android screenshot: "{element_description}"
 
 SCREEN RESOLUTION: {img_w}x{img_h}
+COORDINATE_OVERLAY: {coordinate_note or 'none'}
 
 Return ONLY valid JSON (no extra text):
 {{
@@ -533,6 +619,8 @@ If element is NOT found, return:
 
 RULES:
 - x, y = CENTER of element in pixels
+- Use the coordinate ruler labels on the image edges to estimate precise x/y
+- For icons/buttons, return the center of the visible icon/button, not nearby decoration
 - Be precise with coordinates within {img_w}x{img_h}
 - confidence: how sure you are (0.0 to 1.0)"""
 

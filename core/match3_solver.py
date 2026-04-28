@@ -20,27 +20,103 @@ class ClassifiedBoard:
     cols: int
 
 
-def find_best_swap(board: Sequence[Sequence[str]]) -> Swap | None:
-    """Return the first adjacent swap that creates a match."""
+@dataclass(frozen=True)
+class ScoredSwap:
+    swap: Swap
+    score: float
+    reasons: tuple[str, ...]
+    matched_cells: tuple[Cell, ...]
+
+
+def find_all_swaps(
+    board: Sequence[Sequence[str]],
+    *,
+    target_cells: set[Cell] | None = None,
+    blocked_cells: set[Cell] | None = None,
+) -> list[ScoredSwap]:
+    """Return every adjacent swap that creates a match, sorted by score."""
 
     rows = len(board)
     cols = len(board[0]) if rows else 0
     if rows < 2 or cols < 2:
-        return None
+        return []
 
     mutable = [list(row) for row in board]
+    scored: list[ScoredSwap] = []
     for r in range(rows):
         for c in range(cols):
             for dr, dc in ((0, 1), (1, 0)):
                 nr, nc = r + dr, c + dc
+                swap = ((r, c), (nr, nc))
                 if nr >= rows or nc >= cols or mutable[r][c] == mutable[nr][nc]:
                     continue
+                if blocked_cells and (swap[0] in blocked_cells or swap[1] in blocked_cells):
+                    continue
                 mutable[r][c], mutable[nr][nc] = mutable[nr][nc], mutable[r][c]
-                if _has_match_at(mutable, r, c) or _has_match_at(mutable, nr, nc):
-                    mutable[r][c], mutable[nr][nc] = mutable[nr][nc], mutable[r][c]
-                    return ((r, c), (nr, nc))
+                scored_swap = score_swap(
+                    mutable,
+                    swap,
+                    target_cells=target_cells,
+                    blocked_cells=blocked_cells,
+                )
+                if scored_swap.score > 0:
+                    scored.append(scored_swap)
                 mutable[r][c], mutable[nr][nc] = mutable[nr][nc], mutable[r][c]
-    return None
+    return sorted(scored, key=lambda item: item.score, reverse=True)
+
+
+def find_best_swap(
+    board: Sequence[Sequence[str]],
+    *,
+    target_cells: set[Cell] | None = None,
+    blocked_cells: set[Cell] | None = None,
+) -> Swap | None:
+    """Return the highest-scoring adjacent swap that creates a match."""
+
+    swaps = find_all_swaps(board, target_cells=target_cells, blocked_cells=blocked_cells)
+    return swaps[0].swap if swaps else None
+
+
+def score_swap(
+    board_after_swap: Sequence[Sequence[str]],
+    swap: Swap,
+    *,
+    target_cells: set[Cell] | None = None,
+    blocked_cells: set[Cell] | None = None,
+) -> ScoredSwap:
+    """Score a board after a swap has already been applied."""
+
+    groups = _match_groups(board_after_swap)
+    if not groups:
+        return ScoredSwap(swap=swap, score=0.0, reasons=(), matched_cells=())
+    matched = sorted({cell for group in groups for cell in group})
+    reasons: list[str] = []
+    score = float(len(matched))
+    longest = max(len(group) for group in groups)
+    if longest >= 4:
+        bonus = 8.0 if longest == 4 else 18.0
+        score += bonus
+        reasons.append(f"match_{longest}")
+    if len(groups) > 1:
+        score += 4.0 * (len(groups) - 1)
+        reasons.append("multi_match")
+    if target_cells:
+        target_hits = len(set(matched) & target_cells)
+        if target_hits:
+            score += target_hits * 6.0
+            reasons.append("target")
+    if blocked_cells and (swap[0] in blocked_cells or swap[1] in blocked_cells):
+        score -= 12.0
+        reasons.append("blocked_penalty")
+    if any(board_after_swap[r][c] in {"unknown", "dark", "gray"} for r, c in swap):
+        score -= 3.0
+        reasons.append("unknown_penalty")
+    return ScoredSwap(
+        swap=swap,
+        score=round(max(0.0, score), 3),
+        reasons=tuple(reasons),
+        matched_cells=tuple(matched),
+    )
 
 
 def classify_board_from_png(
@@ -113,6 +189,31 @@ def _has_match_at(board: Sequence[Sequence[str]], row: int, col: int) -> bool:
         count += 1
         r += 1
     return count >= 3
+
+
+def _match_groups(board: Sequence[Sequence[str]]) -> list[tuple[Cell, ...]]:
+    rows = len(board)
+    cols = len(board[0]) if rows else 0
+    groups: list[tuple[Cell, ...]] = []
+    for r in range(rows):
+        c = 0
+        while c < cols:
+            color = board[r][c]
+            start = c
+            while c < cols and board[r][c] == color:
+                c += 1
+            if color and color != "unknown" and c - start >= 3:
+                groups.append(tuple((r, cc) for cc in range(start, c)))
+    for c in range(cols):
+        r = 0
+        while r < rows:
+            color = board[r][c]
+            start = r
+            while r < rows and board[r][c] == color:
+                r += 1
+            if color and color != "unknown" and r - start >= 3:
+                groups.append(tuple((rr, c) for rr in range(start, r)))
+    return groups
 
 
 def _color_bucket(crop: Image.Image) -> str:

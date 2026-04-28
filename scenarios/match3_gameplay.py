@@ -6,7 +6,9 @@ import asyncio
 from loguru import logger
 
 import config
+from core.frame_source import AdbScreencapSource
 from core.match3_solver import cell_center, classify_board_from_png, find_best_swap
+from core.perception.screen_stability import ScreenStabilityDetector, wait_until_stable
 from scenarios.base import BaseScenario
 
 
@@ -20,6 +22,10 @@ class Match3GameplayScenario(BaseScenario):
         cols = int(getattr(config, "MATCH3_GRID_COLS", 9))
         max_moves = int(getattr(config, "MATCH3_MAX_MOVES", 12))
         bounds = self._bounds_from_config()
+        stability_enabled = bool(getattr(config, "MATCH3_STABILITY_ENABLED", True))
+        stability_timeout_ms = int(getattr(config, "MATCH3_STABILITY_TIMEOUT_MS", 1200))
+        stability_poll_ms = int(getattr(config, "MATCH3_STABILITY_POLL_MS", 80))
+        frame_source = AdbScreencapSource(action=self.action)
 
         logger.info("=" * 50)
         logger.info(f"SCENARIO: Match-3 Gameplay ({rows}x{cols}, moves={max_moves})")
@@ -27,6 +33,20 @@ class Match3GameplayScenario(BaseScenario):
 
         moves_done = 0
         for move_index in range(1, max_moves + 1):
+            if stability_enabled:
+                stability = await wait_until_stable(
+                    frame_source,
+                    detector=ScreenStabilityDetector(window_size=2),
+                    timeout_ms=stability_timeout_ms,
+                    poll_interval_ms=stability_poll_ms,
+                    roi=bounds,
+                )
+                if not stability.stable:
+                    logger.warning(
+                        "Match-3 board is not stable; skipping next move "
+                        f"(reason={stability.reason}, diff={stability.mean_diff})"
+                    )
+                    break
             screenshot = await self.action.screenshot()
             classified = classify_board_from_png(
                 screenshot,

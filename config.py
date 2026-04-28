@@ -12,6 +12,11 @@ def _env_bool(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in ("1", "true", "yes", "on")
 
 
+def _env_choice(name: str, default: str, choices: tuple[str, ...]) -> str:
+    value = os.getenv(name, default).strip().lower()
+    return value if value in choices else default
+
+
 # ══════════════════════════════════════════════════
 # Dashboard auth
 # ══════════════════════════════════════════════════
@@ -34,10 +39,11 @@ OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 # ══════════════════════════════════════════════════
 # Vision LLM (CVEngine)
 # ══════════════════════════════════════════════════
-CV_MODELS = os.getenv(
-    "CV_MODELS",
-    "anthropic/claude-sonnet-4-6,openai/gpt-4o"
-).split(",")
+CV_MODELS = [
+    model.strip()
+    for model in os.getenv("CV_MODELS", "xiaomi/mimo-v2.5").split(",")
+    if model.strip()
+]
 CV_REQUEST_TIMEOUT = int(os.getenv("CV_REQUEST_TIMEOUT", "60"))
 CV_AUTOPILOT_MAX_STEPS = int(os.getenv("CV_AUTOPILOT_MAX_STEPS", "45"))
 CV_GAME_TUTORIAL_MAX_STEPS = int(os.getenv("CV_GAME_TUTORIAL_MAX_STEPS", "120"))
@@ -55,6 +61,33 @@ CV_EXTRA_BLOCKER_WORDS = tuple(
     for word in os.getenv("CV_EXTRA_BLOCKER_WORDS", "").split(",")
     if word.strip()
 )
+CV_COORDINATE_GRID = _env_bool("CV_COORDINATE_GRID", "1")
+CV_COORDINATE_GRID_STEP = int(os.getenv("CV_COORDINATE_GRID_STEP", "240"))
+
+# ══════════════════════════════════════════════════
+# Local-first perception rollout
+# ══════════════════════════════════════════════════
+PERCEPTION_MODE = _env_choice(
+    "PERCEPTION_MODE",
+    "llm_first",
+    ("llm_first", "local_first", "local_only", "shadow"),
+)
+FRAME_SOURCE = _env_choice(
+    "FRAME_SOURCE",
+    "adb",
+    ("adb", "replay", "scrcpy", "minicap"),
+)
+ACTION_MODE = _env_choice(
+    "ACTION_MODE",
+    "menu",
+    ("menu", "fast"),
+)
+ENABLE_TEMPLATE_PROVIDER = _env_bool("ENABLE_TEMPLATE_PROVIDER", "1")
+ENABLE_UIAUTOMATOR_PROVIDER = _env_bool("ENABLE_UIAUTOMATOR_PROVIDER", "1")
+ENABLE_LLM_FALLBACK = _env_bool("ENABLE_LLM_FALLBACK", "1")
+ENABLE_DETECTOR_PROVIDER = _env_bool("ENABLE_DETECTOR_PROVIDER", "0")
+DETECTOR_MODEL_PATH = os.getenv("DETECTOR_MODEL_PATH", "").strip()
+DETECTOR_CONFIDENCE_THRESHOLD = float(os.getenv("DETECTOR_CONFIDENCE_THRESHOLD", "0.50"))
 
 # ══════════════════════════════════════════════════
 # Ферма устройств: local | genymotion | browserstack | lambdatest

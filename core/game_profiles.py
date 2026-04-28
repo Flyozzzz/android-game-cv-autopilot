@@ -1,11 +1,34 @@
 """Game profile registry for CV-driven Android game automation."""
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 import json
 import os
 from pathlib import Path
 import re
+from collections.abc import Mapping
+
+
+ScreenZone = tuple[float, float, float, float]
+
+
+COMMON_SCREEN_ZONES: dict[str, ScreenZone] = {
+    "bottom_buttons": (0.05, 0.72, 0.95, 0.96),
+    "top_currency": (0.0, 0.0, 1.0, 0.14),
+    "popup_center": (0.15, 0.20, 0.85, 0.80),
+}
+
+
+RUNNER_SCREEN_ZONES: dict[str, ScreenZone] = {
+    **COMMON_SCREEN_ZONES,
+    "runner_lanes": (0.10, 0.58, 0.90, 0.86),
+}
+
+
+MATCH3_SCREEN_ZONES: dict[str, ScreenZone] = {
+    **COMMON_SCREEN_ZONES,
+    "match3_board": (0.07, 0.30, 0.93, 0.78),
+}
 
 
 def _norm(value: str) -> str:
@@ -40,6 +63,23 @@ def _int_value(value: object) -> int:
         return 0
 
 
+def _screen_zones_value(value: object) -> dict[str, ScreenZone]:
+    if not isinstance(value, Mapping):
+        return {}
+    zones: dict[str, ScreenZone] = {}
+    for raw_name, raw_box in value.items():
+        name = str(raw_name or "").strip()
+        if not name or not isinstance(raw_box, (list, tuple)) or len(raw_box) != 4:
+            continue
+        try:
+            x1, y1, x2, y2 = (float(part) for part in raw_box)
+        except (TypeError, ValueError):
+            continue
+        if 0.0 <= x1 < x2 <= 1.0 and 0.0 <= y1 < y2 <= 1.0:
+            zones[name] = (x1, y1, x2, y2)
+    return zones
+
+
 @dataclass(frozen=True)
 class GameProfile:
     """Configuration hints for one game.
@@ -63,6 +103,7 @@ class GameProfile:
     notes: str = ""
     max_tutorial_steps: int = 0
     max_purchase_steps: int = 0
+    screen_zones: dict[str, ScreenZone] = field(default_factory=dict)
 
     @property
     def selectors(self) -> tuple[str, ...]:
@@ -106,6 +147,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
             "попробуй позже",
         ),
         notes="Installed in validation, but current device/network hit a login/server blocker.",
+        screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
     GameProfile(
         id="talking-tom",
@@ -127,6 +169,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
         notes="Validated end-to-end on the connected Android phone up to purchase preview.",
         max_tutorial_steps=80,
         max_purchase_steps=35,
+        screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
     GameProfile(
         id="subway-surfers",
@@ -146,6 +189,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
         notes="Needs local realtime gestures; LLM CV is too slow for active running.",
         max_tutorial_steps=90,
         max_purchase_steps=40,
+        screen_zones=dict(RUNNER_SCREEN_ZONES),
     ),
     GameProfile(
         id="candy-crush",
@@ -165,6 +209,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
         notes="Install/onboarding works partially; full play uses the generic match-3 solver.",
         max_tutorial_steps=120,
         max_purchase_steps=45,
+        screen_zones=dict(MATCH3_SCREEN_ZONES),
     ),
     GameProfile(
         id="clash-royale",
@@ -181,6 +226,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
         ),
         blocker_words=("supercell id", "server", "войти не удалось"),
         notes="Generic CV profile; not yet proven on this phone.",
+        screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
     GameProfile(
         id="clash-of-clans",
@@ -197,6 +243,7 @@ BUILTIN_GAME_PROFILES: tuple[GameProfile, ...] = (
         ),
         blocker_words=("supercell id", "server", "войти не удалось"),
         notes="Generic CV profile; not yet proven on this phone.",
+        screen_zones=dict(COMMON_SCREEN_ZONES),
     ),
 )
 
@@ -233,6 +280,7 @@ def game_profile_from_mapping(data: dict) -> GameProfile:
         notes=str(data.get("notes") or "").strip(),
         max_tutorial_steps=_int_value(data.get("max_tutorial_steps") or data.get("maxTutorialSteps")),
         max_purchase_steps=_int_value(data.get("max_purchase_steps") or data.get("maxPurchaseSteps")),
+        screen_zones=_screen_zones_value(data.get("screen_zones") or data.get("screenZones")),
     )
 
 

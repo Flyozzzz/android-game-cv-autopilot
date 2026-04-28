@@ -251,6 +251,82 @@ TOOL_DEFS: list[dict[str, Any]] = [
         }, ["goal"]),
     },
     {
+        "name": "vision_inspector_state",
+        "description": "Read the latest Vision Inspector payload: screenshot URL, ROI, provider candidates, selected element, decision trace, and latency breakdown.",
+        "inputSchema": _schema({
+            "serial": {"type": "string", "description": "Optional ADB serial for the screenshot URL."},
+        }),
+    },
+    {
+        "name": "list_vision_templates",
+        "description": "List saved template registry items and resolved PNG files from assets/templates.",
+        "inputSchema": _schema(),
+    },
+    {
+        "name": "save_vision_template",
+        "description": "Save a template crop from the current inspector screenshot or a provided screenshotBase64 payload.",
+        "inputSchema": _schema({
+            "templateId": {"type": "string"},
+            "namespace": {"type": "string"},
+            "threshold": {"type": "number"},
+            "roi": {"type": "string"},
+            "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+            "screenshotBase64": {"type": "string"},
+            "tapOffset": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+            "negativeTemplates": {"type": "array", "items": {"type": "string"}},
+        }, ["templateId", "bbox"]),
+    },
+    {
+        "name": "create_vision_roi",
+        "description": "Create or update a profile ROI zone from a normalized or pixel box.",
+        "inputSchema": _schema({
+            "profileId": {"type": "string"},
+            "zoneName": {"type": "string"},
+            "bbox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+            "width": {"type": "number"},
+            "height": {"type": "number"},
+            "normalizedBox": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
+        }, ["profileId", "zoneName"]),
+    },
+    {
+        "name": "export_vision_label",
+        "description": "Export the selected inspector candidate as a reusable label JSON artifact.",
+        "inputSchema": _schema({
+            "profileId": {"type": "string"},
+            "labelId": {"type": "string"},
+            "goal": {"type": "string"},
+            "screenId": {"type": "string"},
+            "roi": {"type": "object", "additionalProperties": True},
+            "candidate": {"type": "object", "additionalProperties": True},
+        }, ["profileId", "labelId", "candidate"]),
+    },
+    {
+        "name": "autopilot_builder_state",
+        "description": "Read Autopilot Builder state: saved bundles, configured vision models, and output root.",
+        "inputSchema": _schema(),
+    },
+    {
+        "name": "build_autopilot",
+        "description": "Run the LLM Autopilot Builder from a goal prompt and optional replay/live validation settings.",
+        "inputSchema": _schema({
+            "prompt": {"type": "string"},
+            "mode": {"type": "string", "enum": ["create", "improve", "repair", "validate", "shadow"]},
+            "serial": {"type": "string"},
+            "package": {"type": "string"},
+            "models": {
+                "description": "Optional vision model list as comma-separated string or array.",
+                "oneOf": [
+                    {"type": "string"},
+                    {"type": "array", "items": {"type": "string"}},
+                ],
+            },
+            "openrouterKey": {"type": "string", "description": "Optional one-shot OpenRouter key. It is not saved."},
+            "framePaths": {"type": "array", "items": {"type": "string"}},
+            "launchApp": {"type": "boolean"},
+            "liveValidation": {"type": "boolean"},
+        }, ["prompt"]),
+    },
+    {
         "name": "manual_continue",
         "description": "Release a manual checkpoint waiting in the automation run.",
         "inputSchema": _schema(),
@@ -453,6 +529,21 @@ def call_tool(name: str, args: dict[str, Any] | None = None) -> dict[str, Any]:
         return _json_text(_http_json("POST", "/api/cv/plan", args))
     if name == "cv_run_goal":
         return _json_text(_http_json("POST", "/api/cv/run", args))
+    if name == "vision_inspector_state":
+        query = urlencode({"serial": str(args.get("serial") or "")})
+        return _json_text(_http_json("GET", f"/api/vision/inspector?{query}"))
+    if name == "list_vision_templates":
+        return _json_text(_http_json("GET", "/api/vision/templates"))
+    if name == "save_vision_template":
+        return _json_text(_http_json("POST", "/api/vision/templates", args))
+    if name == "create_vision_roi":
+        return _json_text(_http_json("POST", "/api/vision/roi", args))
+    if name == "export_vision_label":
+        return _json_text(_http_json("POST", "/api/vision/labels", args))
+    if name == "autopilot_builder_state":
+        return _json_text(_http_json("GET", "/api/builder/state"))
+    if name == "build_autopilot":
+        return _json_text(_http_json("POST", "/api/builder/build", args))
     if name == "manual_continue":
         return _json_text(_http_json("POST", "/api/manual/continue", {}))
     raise RuntimeError(f"Unknown tool: {name}")
@@ -525,8 +616,9 @@ def _prompt_get(name: str) -> dict[str, Any]:
                         "Use the Android Autopilot dashboard MCP tools to inspect state, "
                         "edit prompts/settings/files, run checks, control the connected "
                         "device, ask CV for the next safe UI action, record/replay safe "
-                        "action paths, create game profiles and presets, and start safe runs. "
-                        "Never attempt real purchases: dashboard runs are locked to "
+                        "action paths, inspect Vision ROI/candidates/templates, create "
+                        "game profiles and presets, build autopilot bundles, and start safe "
+                        "runs. Never attempt real purchases: dashboard runs are locked to "
                         "PURCHASE_MODE=preview and Google phone verification is manual."
                     ),
                 },

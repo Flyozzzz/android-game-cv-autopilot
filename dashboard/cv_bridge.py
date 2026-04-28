@@ -7,7 +7,7 @@ import subprocess
 from dataclasses import asdict
 from typing import Any, Callable
 
-from core.cv_autopilot import CVAutopilot
+from core.cv_autopilot import CVAutopilot, record_ui_action_plan_trace
 from core.cv_engine import CVEngine
 
 
@@ -134,6 +134,24 @@ def _models_from_payload(payload: dict[str, Any]) -> list[str] | None:
     return None
 
 
+def _first_nonblank(*values: Any) -> str:
+    for value in values:
+        text = str(value or "").strip()
+        if text:
+            return text
+    return ""
+
+
+def require_vision_api_key(api_key: str = "") -> str:
+    key = str(api_key or "").strip()
+    if not key:
+        raise RuntimeError(
+            "OpenRouter / Vision API key is required. Enter it in Keys and provider "
+            "credentials or set OPENROUTER_API_KEY."
+        )
+    return key
+
+
 async def plan_cv_action(
     *,
     serial: str,
@@ -145,6 +163,7 @@ async def plan_cv_action(
     adb_path: str = "adb",
     runner: CommandRunner | None = None,
 ) -> dict[str, Any]:
+    api_key = require_vision_api_key(api_key)
     action = DashboardAdbAction(serial, adb_path=adb_path, runner=runner)
     screenshot = await action.screenshot()
     async with CVEngine(api_key=api_key or None, models=models) as cv:
@@ -154,6 +173,14 @@ async def plan_cv_action(
             available_values=values or {},
             recent_actions=recent_actions or [],
         )
+    record_ui_action_plan_trace(
+        plan,
+        screenshot,
+        goal=goal,
+        outcome="planned",
+        frame_source="adb",
+        policy_result="planned",
+    )
     return {
         "serial": serial,
         "plan": plan.model_dump(),
@@ -176,6 +203,7 @@ async def run_cv_goal(
     adb_path: str = "adb",
     runner: CommandRunner | None = None,
 ) -> dict[str, Any]:
+    api_key = require_vision_api_key(api_key)
     action = DashboardAdbAction(serial, adb_path=adb_path, runner=runner)
     max_steps = max(1, min(int(max_steps or 12), 60))
     async with CVEngine(api_key=api_key or None, models=models) as cv:
@@ -210,7 +238,11 @@ def payload_recent_actions(payload: dict[str, Any]) -> list[str]:
 
 
 def payload_api_key(payload: dict[str, Any]) -> str:
-    return str(payload.get("openrouterKey") or payload.get("apiKey") or os.getenv("OPENROUTER_API_KEY", "")).strip()
+    return _first_nonblank(
+        payload.get("openrouterKey"),
+        payload.get("apiKey"),
+        os.getenv("OPENROUTER_API_KEY", ""),
+    )
 
 
 def payload_models(payload: dict[str, Any]) -> list[str] | None:

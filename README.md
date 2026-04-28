@@ -5,13 +5,15 @@
 ![Release](https://img.shields.io/badge/beta-0.1.15c-3157D5)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![MCP](https://img.shields.io/badge/MCP-ready-3157D5)
-![Tests](https://img.shields.io/badge/tests-163%20passed-087A68)
-![Coverage](https://img.shields.io/badge/deterministic%20coverage-100%25-087A68)
+![Tests](https://img.shields.io/badge/tests-348%20passed-087A68)
+![Coverage](https://img.shields.io/badge/local--first%20coverage-100%25-087A68)
+![Perception](https://img.shields.io/badge/perception-local--first-3157D5)
 ![Safety](https://img.shields.io/badge/purchases-preview%20only-B42318)
 
 Release: `0.1.15c-beta` · Python `3.13` · Android `ADB + Appium` ·
-Docker ready · MCP ready · Tests `163 passed` · Deterministic coverage `100%` ·
-Purchases `preview only`
+Docker ready · MCP ready · Tests `348 passed` · Local-first module coverage
+`100%` · Autopilot Builder coverage `100%` · Deterministic coverage `100%` ·
+Real Subway Surfers smoke passed · Purchases `preview only`
 
 Android Game CV Autopilot is a local Android automation lab for installing
 games, passing safe onboarding, running gameplay helpers, navigating to purchase
@@ -19,9 +21,12 @@ preview screens, and controlling everything from a bilingual web dashboard or an
 MCP-compatible AI client.
 
 It is designed for real Android devices and emulators connected through ADB and
-Appium. The project combines a Vision/CV autopilot, manual phone control,
-recorded action replay, custom game profile construction, named presets, a
-project editor, test runners, and an MCP bridge.
+Appium. The project now uses a local-first perception engine: fast frame access,
+ROI zones, UIAutomator/text candidates, template matching, optional local
+detectors, screen cache, action scheduling, and Vision LLM only as a fallback.
+It also includes manual phone control, recorded action replay, custom game
+profile construction, named presets, a visual inspector, test runners, and an
+MCP bridge.
 
 The dashboard UI supports English and Russian.
 
@@ -38,10 +43,13 @@ This project is source-available for non-commercial use only. Commercial use is 
 - [What It Does](#what-it-does)
 - [Safety Model](#safety-model)
 - [Architecture](#architecture)
+- [Local-First Perception Engine](#local-first-perception-engine)
 - [Requirements](#requirements)
 - [Quick Start](#quick-start)
 - [Docker](#docker)
 - [Dashboard](#dashboard)
+- [LLM Autopilot Builder](#llm-autopilot-builder)
+- [Docs And Development Guide](#docs-and-development-guide)
 - [Game Profile And Preset Constructor](#game-profile-and-preset-constructor)
 - [MCP Server](#mcp-server)
 - [Automation Modes](#automation-modes)
@@ -59,12 +67,19 @@ automation:
 
 - Select a connected Android device or emulator.
 - Install a game from Play Store or an APK fallback.
-- Use CV autopilot to pass onboarding/tutorial screens.
+- Use local-first perception before calling Vision LLM.
+- Use CV autopilot to pass onboarding/tutorial screens with guarded fallback.
 - Use fast local gameplay helpers for games that need real-time input.
+- Replay saved frame folders without a phone for deterministic perception tests.
 - Record manual taps, swipes, text input, and key presses.
 - Replay recorded paths as automation stages.
 - Navigate to a purchase preview screen and stop before payment confirmation.
 - Build new game profiles and reusable presets from the dashboard.
+- Inspect screenshots with ROI/candidate overlays and save templates, ROI zones,
+  or labels from the dashboard.
+- Build reusable autopilot bundles from a prompt: GoalSpec, safety policy,
+  screen graph, profile, ROI zones, templates, scenario, replay report,
+  live-validation report, patch data, and version history.
 - Let MCP-compatible AI clients inspect, edit safe data files, test, and operate
   the system.
 
@@ -95,6 +110,11 @@ enforce the same guard rules:
   `dashboard/prompts`. Server code, Python files, dashboard JS/CSS/HTML, logs,
   reports, caches, virtualenvs, legacy scripts, and known secret files are
   blocked from the web editor.
+- Fast gameplay is local-only by design: it uses ROI/tracking/scheduler logic
+  and does not call Vision LLM in the real-time loop.
+- The project is for local QA, single-player automation experiments, and safe
+  UI testing. It does not implement PvP automation, stealth, anti-cheat bypass,
+  or payment confirmation.
 
 These restrictions are deliberate. They keep tests repeatable and prevent
 accidental real purchases or account-verification abuse.
@@ -111,17 +131,31 @@ flowchart LR
     API --> Main[main.py orchestration]
     API --> Files[Project editor / presets / profiles]
     API --> ADB[ADB device controls]
+    API --> Inspector[Vision Inspector]
+    API --> Builder[Autopilot Builder]
     API --> CV[CV bridge]
 
     Main --> Scenarios[Install / tutorial / gameplay / purchase preview]
     Scenarios --> Appium[Appium action engine]
-    Scenarios --> CVEngine[Vision CV engine]
+    Scenarios --> Frames[FrameSource]
+    Scenarios --> Perception[ElementFinder / Fusion / Cache]
+    Scenarios --> Scheduler[InputScheduler]
+    Scenarios --> Metrics[Metrics / Trace events]
     Scenarios --> Farms[Local / Genymotion / BrowserStack / LambdaTest]
+
+    Frames --> Providers[UIAutomator / Template / Detector / LLM fallback]
+    Perception --> Providers
+    Providers --> Vision[OpenRouter-compatible Vision model]
+    Inspector --> Metrics
+    Inspector --> Perception
+    Builder --> Frames
+    Builder --> Perception
+    Builder --> Metrics
 
     ADB --> Android[Phone or emulator]
     Appium --> Android
+    Scheduler --> Android
     CV --> Android
-    CVEngine --> Vision[OpenRouter-compatible Vision model]
 ```
 
 Core layers:
@@ -130,11 +164,17 @@ Core layers:
 | --- | --- | --- |
 | Orchestration | `main.py` | Stage ordering, run reports, CLI entrypoint |
 | Runtime config | `config.py` | Environment-driven settings |
-| CV | `core/cv_engine.py`, `core/cv_autopilot.py` | Screenshot-to-action planning and safe execution |
-| Profiles | `core/game_profiles.py` | Built-in and custom game routing hints |
+| Frame sources | `core/frame_source.py` | ADB screenshots, replay frames, and backend selection |
+| Perception | `core/perception/` | Candidates, providers, fusion, ROI, stability, cache |
+| CV / LLM fallback | `core/cv_engine.py`, `core/cv_autopilot.py` | Vision planning and guarded execution when local providers are not enough |
+| Input | `core/input_scheduler.py`, `core/action_engine.py` | Mode-aware taps/swipes, cooldowns, action metrics |
+| Gameplay | `core/gameplay/`, `core/fast_runner.py`, `core/match3_solver.py` | Runner and match-3 local helpers |
+| Autopilot Builder | `core/autobuilder/` | Goal parsing, safety, app lifecycle, exploration, screen graph, LLM screen analysis, profile/ROI/template/scenario generation, bundles, replay/live validation, repair, review, versioning, eval |
+| Profiles | `core/game_profiles.py` | Built-in/custom routing hints and percent-based screen zones |
 | Scenarios | `scenarios/` | Install, tutorial, gameplay, payment-preview flows |
 | Services | `services/` | Local device, device farms, provider clients |
-| Dashboard | `dashboard/server.py`, `dashboard/static/` | Web UI, HTTP API, constructor, manual mode |
+| Metrics | `core/metrics.py` | Trace schema, latency counters, dashboard payloads |
+| Dashboard | `dashboard/server.py`, `dashboard/static/`, `dashboard/api_vision.py` | Web UI, HTTP API, constructor, manual mode, visual inspector |
 | MCP | `dashboard/mcp_server.py` | AI-client bridge over stdio |
 | Tests | `tests/` | Unit, mocked integration, live ADB smoke tests |
 
@@ -171,6 +211,63 @@ sequenceDiagram
     Model->>MCP: run_checks / start_safe_run
     MCP->>UI: reports and logs
 ```
+
+## Local-First Perception Engine
+
+The current perception path is intentionally layered so the slowest tool is used
+last:
+
+```text
+FrameSource.latest_frame()
+  -> ScreenStabilityDetector
+  -> ROISelector(profile, state)
+  -> ElementFinder(goal, roi)
+  -> Providers: UIAutomator, Template, Detector, LLM fallback
+  -> FusionEngine.rank_candidates()
+  -> PolicyGuard / scenario logic
+  -> InputScheduler.execute()
+  -> Metrics + Trace + Dashboard overlay
+```
+
+Implemented rollout flags:
+
+| Variable | Values | Meaning |
+| --- | --- | --- |
+| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, `local_only` | Controls provider order and fallback behavior |
+| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap` | Selects capture backend; all four are implemented, with `scrcpy`/`minicap` requiring their external host/device prerequisites |
+| `ACTION_MODE` | `menu`, `fast` | Chooses safe menu pauses or fast gameplay pauses |
+| `ENABLE_TEMPLATE_PROVIDER` | `true` / `false` | Enables template matching |
+| `ENABLE_UIAUTOMATOR_PROVIDER` | `true` / `false` | Enables native Android text/UI candidates |
+| `ENABLE_LLM_FALLBACK` | `true` / `false` | Allows Vision fallback outside local-only loops |
+| `ENABLE_DETECTOR_PROVIDER` | `true` / `false` | Enables optional local detector provider |
+
+Local providers share one result model, `ElementCandidate`, with bbox, center,
+confidence, source, text, screen ID, and latency. `FusionEngine` scores
+candidates with confidence, ROI, text match, provider priority, recency, and
+stale-frame penalties.
+
+Profiles now support percent-based `screen_zones`, so the same profile can work
+across 720p, 1080p, 1440p, and different aspect ratios. Templates live under
+`assets/templates/` with registry metadata for thresholds, scales, ROI names,
+tap offsets, and negative templates.
+
+`ScreenStateCache` stores perceptual hashes, recent candidates, last action,
+resolution, profile ID, and ROI hashes for repeated screens. `ElementFinder`
+uses the cache before providers, so a repeated stable screen can reuse prior
+local/LLM candidates. `ReplayFrameSource` lets perception tests run from saved
+PNG frames with no connected phone. `ScrcpyFrameSource` uses real `scrcpy` plus
+`ffmpeg` frame extraction, and `MinicapFrameSource` reads the minicap socket
+protocol when minicap is installed on the device.
+
+Fast gameplay uses `RunnerPlugin` and `InputScheduler` instead of the generic
+Vision loop. Runner state includes `STARTING`, `RUNNING`, `JUMPING`, `DUCKING`,
+`LANE_SWITCHING`, `RECOVERING`, `GAME_OVER`, and `UNKNOWN`, with cooldown keys,
+danger prediction, lane score velocity, and frame-skip policy.
+
+The detailed implementation ledger is kept in
+[docs/perception_roadmap.md](docs/perception_roadmap.md). It lists every
+completed PR-sized item, changed files, tests, coverage gate, and the real
+Subway Surfers smoke result.
 
 ## Requirements
 
@@ -405,6 +502,8 @@ for both manual operation and AI-assisted automation.
 | `MCP` | MCP server command, client config, exposed tool names |
 | `Manual` | Live screenshot, tap, swipe, key, text input, action recording, and replay |
 | `CV Bench` | Write a CV goal prompt, plan one action, or run a short guarded CV loop |
+| `Vision Inspector` | Screenshot overlay with ROI zones, provider boxes, confidence, latency, and editing actions |
+| `Builder` | Prompt-to-autopilot builder with GoalSpec, safety checks, bundle save, replay/live validation, patch data, and version history |
 | `Project` / `Data Files` | Guarded editor for safe dashboard data files only |
 | `Profiles` | Create, edit, apply, and delete custom game profiles |
 | `Guide` | English/Russian explanations of how the constructor works |
@@ -426,6 +525,12 @@ Dashboard API examples:
 | `POST /api/presets` | Save a named preset |
 | `POST /api/cv/plan` | Ask CV for one next action without executing |
 | `POST /api/cv/run` | Run safe CV autopilot on the current screen |
+| `GET /api/vision/inspector` | Read latest screenshot, ROI, candidates, metrics, and selected element |
+| `POST /api/vision/templates` | Save the selected/cropped area as a template asset |
+| `POST /api/vision/roi` | Add a normalized ROI zone to a custom profile |
+| `POST /api/vision/labels` | Export a manual label JSON record |
+| `GET /api/builder/state` | List saved autopilot bundles and default builder models |
+| `POST /api/builder/build` | Build an autopilot bundle from a goal prompt |
 | `GET /api/device/screenshot` | Capture selected Android screen |
 | `POST /api/device/tap` | Tap by coordinates through ADB |
 | `POST /api/device/swipe` | Swipe by coordinates through ADB |
@@ -440,6 +545,10 @@ Manual recorder behavior:
   previous action. The last action uses `pause: 0`.
 - CV Test Bench lets you type a goal prompt, plan one CV step with
   `POST /api/cv/plan`, or run a short guarded CV loop with `POST /api/cv/run`.
+- Vision Inspector draws the latest ROI/candidate overlay and can save a
+  selected region as a template, create a profile ROI, or export a label record.
+- Builder takes a prompt, selected package/device, optional replay frames, and
+  the current Vision key/model list, then writes an `autopilots/<id>/` bundle.
 
 ### Dashboard Screenshots
 
@@ -477,6 +586,29 @@ serial or private phone content.
 a short guarded CV loop on the current device before saving the route into a
 preset.
 
+`Vision Inspector` sits next to the CV/manual tools. It shows candidate boxes,
+provider source, confidence, selected action, ROI zones, and latency metrics,
+then lets you turn a useful region into a template, ROI, or label file.
+After a CV run, click `Refresh Inspector`. Orange is the active ROI, blue boxes
+are provider candidates, green is the selected element, and a purple box is a
+manual region you draw by dragging on the screenshot. `Save Template` and
+`Create ROI` use the purple manual box first; if no manual box is drawn, they
+use the green selected element.
+The `Saved artifact` block shows the exact file path and JSON returned by the
+save action. ROI saves also enable `Open Profile JSON`, which jumps to the
+Project editor so you can inspect or edit `dashboard/profiles/<profile>.json`.
+Template saves show the crop path under `assets/templates/...` and the registry
+path.
+The Inspector also has a `Templates` library. Click `Refresh Templates` to list
+the current template registry, see matched PNG files, and use a saved template
+back in the form. Template saves write `template id`, `namespace`, ROI name, and
+threshold into `assets/templates/registry.json`.
+
+![Vision Inspector](docs/screenshots/11-vision-inspector.png)
+
+This screenshot shows the Inspector with overlay, save controls, and template
+library in one place. It is the primary local-perception debugging surface.
+
 ![Dashboard data files](docs/screenshots/06-data-files.png)
 
 `Data Files` is intentionally scoped to safe JSON/notes: presets, profiles,
@@ -487,17 +619,82 @@ editable from this panel.
 
 `Profiles` is the constructor for new games. A profile defines package name,
 Play Store query, CV hints, blocker words, gameplay strategy, validation notes,
-and step limits.
+step limits, and normalized `screen_zones` used by local perception.
 
 ![Guide section](docs/screenshots/08-guide.png)
 
-`Guide` explains how the constructor, CV autopilot, recordings, MCP, tests, and
-safety rules work.
+`Guide` explains the constructor, profiles, presets, CV autopilot, recordings,
+MCP, Vision Inspector, Autopilot Builder, tests, and safety rules.
 
 ![Reports and logs](docs/screenshots/09-reports-logs.png)
 
 `Reports` and `Logs` show the latest run timeline, check output, and active
 dashboard-started automation log tail.
+
+## LLM Autopilot Builder
+
+The Builder tab turns a high-level prompt into a saved local-first autopilot
+bundle. The LLM is used as a builder and screen analyst, not as a realtime
+player. Runtime execution still goes through local frame capture, screen
+stability, ROI, templates/UIAutomator/local providers, `PolicyGuard`, and
+`InputScheduler`.
+
+Input:
+
+- Goal prompt.
+- Builder mode: `create`, `improve`, `repair`, `validate`, or `shadow`.
+- Optional package name, selected ADB serial, replay frame paths, and live
+  validation toggle.
+- OpenRouter/Vision key and model list from the dashboard credentials fields.
+
+Output:
+
+```text
+autopilots/<autopilot_id>/
+  autopilot.json
+  profile.json
+  scenario.json
+  screen_graph.json
+  safety_policy.json
+  templates/
+  replays/frames/
+  reports/build_report.json
+  patches/
+  version_history.json
+```
+
+Implemented builder modules live under `core/autobuilder/`:
+
+- Goal parsing, schema validation, budgets, and redaction.
+- Safety policy and review-gated `PolicyGuard`.
+- App launch/stop/package inspection through `AppManager`.
+- `ScreenGraph`, `Explorer`, and `BuildContext`.
+- Structured LLM screen analysis with schema validation and safety filtering.
+- Profile, ROI, scenario, and template generation.
+- Atomic artifact writes, bundle save/load, replay tests, live validation,
+  self-healing patch proposals, human review queue, version history, and eval
+  metrics.
+
+Dashboard endpoints:
+
+- `GET /api/builder/state`
+- `POST /api/builder/build`
+
+Focused builder verification currently covers 44 tests. The implementation
+ledger is in `docs/autopilot_builder_implementation_status.md`.
+
+![Autopilot Builder](docs/screenshots/12-autopilot-builder.png)
+
+The Builder view is the operator-facing prompt-to-autopilot screen: prompt,
+mode, package, replay/live toggles, saved bundles, and raw output.
+
+## Docs And Development Guide
+
+- [Development Guide](docs/development_guide.md)
+- [Dashboard Guide](docs/dashboard_guide.md)
+- [Perception Roadmap](docs/perception_roadmap.md)
+- [Autopilot Builder Plan](docs/autopilot_builder_plan.md)
+- [Autopilot Builder Implementation Status](docs/autopilot_builder_implementation_status.md)
 
 ## Game Profile And Preset Constructor
 
@@ -521,8 +718,19 @@ A profile describes:
 - purchase-preview hints
 - blocker words
 - gameplay strategy
+- normalized `screen_zones`
 - max tutorial/purchase steps
 - notes and validation status
+
+Template assets are stored under:
+
+```text
+assets/templates/
+```
+
+The optional template registry can define threshold, ROI, scales, tap offset,
+and negative templates per visual element. Dashboard Inspector editing endpoints
+can add new template crops and update `assets/templates/registry.json`.
 
 Named presets are saved in:
 
@@ -589,6 +797,8 @@ More MCP details are in [dashboard/MCP.md](dashboard/MCP.md).
 | Recordings | `list_recordings`, `read_recording`, `save_recording`, `replay_recording` |
 | Constructor | `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset` |
 | CV | `cv_plan_next_action`, `cv_run_goal` |
+| Vision Inspector | `vision_inspector_state`, `list_vision_templates`, `save_vision_template`, `create_vision_roi`, `export_vision_label` |
+| Autopilot Builder | `autopilot_builder_state`, `build_autopilot` |
 | Android device | `adb_devices`, `device_screenshot`, `device_tap`, `device_swipe`, `device_key`, `device_text` |
 | Manual checkpoints | `manual_continue` |
 
@@ -600,8 +810,13 @@ Create a game route through an AI client:
 2. Call `save_game_profile` with a new profile JSON.
 3. Call `save_preset` with the full run configuration.
 4. Call `run_checks`.
-5. Use `device_screenshot` or `cv_plan_next_action` to inspect the current UI.
-6. Start the guarded run with `start_safe_run`.
+5. Use `device_screenshot`, `cv_plan_next_action`, or `vision_inspector_state`
+   to inspect the current UI and latest perception trace.
+6. Save a local perception asset with `save_vision_template` or
+   `create_vision_roi`.
+7. Build a reusable autopilot bundle with `autopilot_builder_state` and
+   `build_autopilot`.
+8. Start the guarded run with `start_safe_run`.
 
 Use CV through MCP:
 
@@ -628,10 +843,14 @@ The model can then use the MCP tools end to end:
 2. Create a new custom profile with `save_game_profile`.
 3. Save a reusable route with `save_preset`.
 4. Inspect the phone with `device_screenshot`.
-5. Test CV behavior with `cv_plan_next_action` and `cv_run_goal`.
-6. Use `run_checks` after changing profiles, presets, recordings, or prompt
+5. Inspect the last perception decision with `vision_inspector_state`, then
+   save a template or ROI when useful.
+6. Build a prompt-driven autopilot with `autopilot_builder_state` and
+   `build_autopilot`.
+7. Test CV behavior with `cv_plan_next_action` and `cv_run_goal`.
+8. Use `run_checks` after changing profiles, presets, recordings, or prompt
    notes.
-7. Start the guarded route with `start_safe_run` and monitor `tail_run_log` and
+9. Start the guarded route with `start_safe_run` and monitor `tail_run_log` and
    `latest_report`.
 
 This is the intended path for adapting the constructor to another game. The
@@ -643,11 +862,11 @@ files. Real purchase confirmation remains blocked by the same safety guard.
 
 | Mode | Use Case |
 | --- | --- |
-| `cv` | Generic screenshot-to-action flow for installs, onboarding, menus |
+| `cv` | Guarded menu/tutorial flow; local-first providers or Vision fallback depending on `PERCEPTION_MODE` |
 | `manual` | Human-controlled step with live screen and manual checkpoint |
 | `recorded` | Replay previously recorded taps/swipes/text/keys |
 | `deterministic` | Hard-coded deterministic flow where available |
-| `fast` | Local high-speed gameplay helper for runner-style games |
+| `fast` | Local high-speed gameplay helper with `RunnerPlugin`, cooldowns, and no Vision calls |
 | `auto` | Select an appropriate gameplay helper from profile/config |
 | `off` | Skip a stage |
 
@@ -669,8 +888,11 @@ python3 main.py --game custom
 Current local status:
 
 ```text
-163 passed
+348 passed
+Local-first module coverage gate: 100.00%
+Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
+Real Subway Surfers smoke: passed on device 47d33e1c
 ```
 
 Run all active tests:
@@ -711,6 +933,94 @@ python3 -m pytest \
   -q
 ```
 
+Run the 100% coverage gate for the Autopilot Builder:
+
+```bash
+python3 -m pytest \
+  tests/test_goal_spec.py \
+  tests/test_task_parser.py \
+  tests/test_autobuilder_budgets.py \
+  tests/test_autobuilder_schemas.py \
+  tests/test_autobuilder_safety_policy.py \
+  tests/test_autobuilder_redaction.py \
+  tests/test_app_manager.py \
+  tests/test_screen_graph.py \
+  tests/test_build_context.py \
+  tests/test_explorer.py \
+  tests/test_screen_analyst.py \
+  tests/test_profile_generator.py \
+  tests/test_roi_generator.py \
+  tests/test_scenario_generator.py \
+  tests/test_template_miner.py \
+  tests/test_artifact_store.py \
+  tests/test_autopilot_bundle.py \
+  tests/test_replay_test_runner.py \
+  tests/test_live_validation.py \
+  tests/test_self_healing.py \
+  tests/test_patch_review.py \
+  tests/test_autopilot_versioning.py \
+  tests/test_autopilot_eval_suite.py \
+  tests/test_autopilot_builder_e2e.py \
+  tests/test_dashboard_builder_api.py \
+  tests/test_autobuilder_coverage_edges.py \
+  --cov=core.autobuilder \
+  --cov=dashboard.api_builder \
+  --cov-report=term-missing \
+  --cov-fail-under=100
+```
+
+Run the 100% coverage gate for the local-first perception/gameplay/inspector
+modules:
+
+```bash
+python3 -m pytest \
+  tests/test_config_feature_flags.py \
+  tests/test_metrics.py \
+  tests/test_input_scheduler.py \
+  tests/test_frame_source_replay.py \
+  tests/test_default_perception_factory.py \
+  tests/test_roi_selector.py \
+  tests/test_screen_stability.py \
+  tests/test_element_fusion.py \
+  tests/test_element_finder_contract.py \
+  tests/test_template_provider.py \
+  tests/test_uiautomator_provider.py \
+  tests/test_screen_state_cache.py \
+  tests/test_llm_provider.py \
+  tests/test_dashboard_vision_inspector.py \
+  tests/test_dashboard_vision_editing.py \
+  tests/test_runner_plugin.py \
+  tests/test_fast_runner_gameplay.py \
+  tests/test_match3_gameplay.py \
+  tests/test_match3_scoring.py \
+  tests/test_detector_provider.py \
+  tests/test_cv_autopilot.py \
+  --cov=core.metrics \
+  --cov=core.input_scheduler \
+  --cov=core.frame_source \
+  --cov=core.perception.defaults \
+  --cov=core.perception.roi \
+  --cov=core.perception.screen_stability \
+  --cov=core.perception.element \
+  --cov=core.perception.fusion \
+  --cov=core.perception.finder \
+  --cov=core.perception.template_registry \
+  --cov=core.perception.providers.template_provider \
+  --cov=core.perception.providers.uiautomator_provider \
+  --cov=core.perception.state_cache \
+  --cov=core.perception.providers.llm_provider \
+  --cov=dashboard.api_vision \
+  --cov=core.gameplay.base_plugin \
+  --cov=core.gameplay.runner_plugin \
+  --cov=core.perception.providers.detector_provider \
+  --cov=scenarios.fast_runner_gameplay \
+  --cov=scenarios.match3_gameplay \
+  --cov=core.cv_autopilot \
+  --cov-report=term-missing \
+  --cov-fail-under=100 \
+  -q
+```
+
 Run mocked integration boundaries:
 
 ```bash
@@ -737,10 +1047,11 @@ bash scripts/secret_scan.sh
 
 ### Coverage Policy
 
-The project separates coverage into two categories:
+The project separates coverage into focused categories:
 
 | Category | Coverage Target | Why |
 | --- | --- | --- |
+| Local-first perception/gameplay/inspector | 100% gate | Frame sources, ROI, providers, fusion, cache, scheduler, runner, dashboard inspector |
 | Deterministic code | 100% gate | MCP protocol, prompt templates, CV bridge helpers, profile parsing |
 | Integration code | Mocked and live tests | ADB, Appium, Google, Play Store, device farms, HTTP providers |
 
@@ -783,20 +1094,22 @@ python3 -m pytest \
   -q
 ```
 
-4. Run the secret scan:
+4. Run the local-first 100% coverage gate listed in [Testing And Coverage](#testing-and-coverage).
+
+5. Run the secret scan:
 
 ```bash
 bash scripts/secret_scan.sh
 ```
 
-5. Validate Docker:
+6. Validate Docker:
 
 ```bash
 docker compose config
 bash scripts/docker_check.sh
 ```
 
-6. Commit and tag:
+7. Commit and tag:
 
 ```bash
 git add .
@@ -804,7 +1117,7 @@ git commit -m "Release beta 0.1.15c"
 git tag -a beta-0.1.15c -m "Beta 0.1.15c"
 ```
 
-7. Push only after a remote is configured:
+8. Push only after a remote is configured:
 
 ```bash
 git remote add origin git@github.com:<owner>/<repo>.git
@@ -832,7 +1145,16 @@ Common variables:
 | Variable | Purpose |
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
-| `CV_MODELS` | Comma-separated Vision model fallback list |
+| `CV_MODELS` | Comma-separated Vision model fallback list; defaults to `xiaomi/mimo-v2.5` |
+| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, or `local_only` |
+| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, or `minicap`; `scrcpy` requires host `scrcpy` + `ffmpeg`, `minicap` requires device minicap files |
+| `ACTION_MODE` | `menu` for safe pauses or `fast` for realtime gameplay |
+| `ENABLE_TEMPLATE_PROVIDER` | Enable local template matching |
+| `ENABLE_UIAUTOMATOR_PROVIDER` | Enable native Android text/UI candidates |
+| `ENABLE_LLM_FALLBACK` | Permit Vision fallback outside local-only loops |
+| `ENABLE_DETECTOR_PROVIDER` | Enable optional detector provider |
+| `DETECTOR_MODEL_PATH` | Optional ONNX/local detector model path |
+| `DETECTOR_CONFIDENCE_THRESHOLD` | Minimum detector confidence |
 | `DEVICE_FARM` | `local`, `genymotion`, `browserstack`, or `lambdatest` |
 | `LOCAL_DEVICE` | ADB serial or `auto` |
 | `APPIUM_PORT` | Local Appium port |
@@ -878,10 +1200,43 @@ bootstrap.py                         Preflight configuration/API checks
 config.py                            Environment-driven runtime config
 main.py                              Automation entrypoint and stage orchestration
 core/
+  metrics.py                         Trace schema and latency counters
+  frame_source.py                    ADB/replay frame source abstraction
+  input_scheduler.py                 Menu/fast action scheduling and cooldowns
   cv_engine.py                       Vision API client and JSON parsing
   cv_autopilot.py                    Screenshot -> plan -> guarded execution loop
   cv_prompt_templates.py             CV prompt templates
   game_profiles.py                   Built-in/custom game profile registry
+  perception/
+    element.py                       Shared ElementCandidate model
+    finder.py                        Local-first provider orchestration
+    fusion.py                        Candidate scoring/ranking
+    roi.py                           Percent screen zones and ROI conversion
+    screen_stability.py              Frame-diff stability detector
+    state_cache.py                   Perceptual screen cache
+    template_registry.py             Template metadata loading
+    providers/                       UIAutomator, template, detector, LLM adapters
+  gameplay/
+    base_plugin.py                   Shared gameplay action result
+    runner_plugin.py                 Runner state machine and danger prediction
+  autobuilder/
+    goal_spec.py                     Prompt-derived GoalSpec model
+    safety_policy.py                 Builder safety boundaries
+    app_manager.py                   Controlled ADB app lifecycle
+    explorer.py                      Safe screen exploration
+    screen_graph.py                  Screen and transition graph
+    screen_analyst.py                Structured LLM screen analysis
+    profile_generator.py             Profile defaults and runtime policy
+    roi_generator.py                 Percent-based ROI generation
+    template_miner.py                Template crop/save/verification
+    scenario_generator.py            Automation scenario generation
+    bundle.py                        Autopilot bundle save/load
+    replay_test_runner.py            Offline replay validation
+    live_validation.py               ADB live validation report
+    self_healing.py                  Patch proposal engine
+    review.py                        Human patch approval queue
+    versioning.py                    Version history and rollback
+    eval_suite.py                    Autopilot quality metrics
   appium_action_engine.py            Device action abstraction
 scenarios/
   install_game_cv.py                 Play Store/APK install flow
@@ -897,6 +1252,8 @@ services/
   sms_service.py                     SMS provider boundary
 dashboard/
   server.py                          Web dashboard HTTP API
+  api_builder.py                     Autopilot Builder API helpers
+  api_vision.py                      Vision Inspector payload/editing helpers
   mcp_server.py                      MCP stdio bridge
   cv_bridge.py                       Dashboard CV planning/execution helpers
   static/                            HTML/CSS/JS/i18n assets
@@ -904,6 +1261,8 @@ dashboard/
   profiles/                          Custom game profile JSON files
   recordings/                        Saved manual action recordings
   prompts/                            Optional dashboard-editable prompt notes
+assets/
+  templates/                         Template crops and optional registry.json
 tests/                               Active pytest suite
 legacy/                              Old probes/scripts excluded from active coverage
 ```
@@ -949,6 +1308,26 @@ Check:
 ```bash
 adb -s <serial> exec-out screencap -p > /tmp/android-screen.png
 ```
+
+### Local perception finds the wrong element
+
+Use `PERCEPTION_MODE=shadow` to compare local providers against the existing LLM
+path without letting local candidates drive the action. Check the Vision
+Inspector overlay for ROI, source, confidence, latency, and selected candidate.
+Raise template thresholds or narrow the profile `screen_zones` when a local
+provider is too broad.
+
+### Replay perception without a phone
+
+Set `FRAME_SOURCE=replay` in tests or local scripts and point the replay source
+at a folder of PNG frames. This keeps template, ROI, fusion, cache, and
+stability debugging deterministic when no Android device is connected.
+
+### Fast mode taps too aggressively
+
+Use `ACTION_MODE=fast` only for gameplay helpers that own their cooldown policy.
+Runner actions include cooldown keys for lane changes, jump, and duck. For menu
+or tutorial screens, keep `ACTION_MODE=menu`.
 
 ### Dashboard port is busy
 
@@ -1017,15 +1396,27 @@ Android Game CV Autopilot — локальная лаборатория авто
 останавливаться до реального подтверждения оплаты. Управление доступно из
 двуязычного web dashboard и через MCP-совместимые AI-клиенты.
 
+Текущая архитектура — local-first: сначала быстрые локальные источники кадров,
+ROI, UIAutomator/text, шаблоны, optional detector, cache и scheduler; Vision LLM
+используется только как fallback для неизвестных или неоднозначных экранов.
+
 ### Что Умеет
 
 - Выбор подключенного телефона или эмулятора через ADB.
 - Установка игры из Play Store или APK fallback.
-- CV-автопилот по скриншотам для onboarding, tutorial и меню.
+- Local-first perception перед Vision LLM.
+- CV-автопилот по скриншотам для onboarding, tutorial и меню с guarded fallback.
+- Fast gameplay helpers без Vision LLM в realtime loop.
+- Replay сохраненных кадров без телефона для детерминированных perception tests.
 - Ручной режим с live screenshot, tap, swipe, key и text input.
 - Запись действий с реальным временем между действиями.
 - Воспроизведение записанных путей как этапов автоматизации.
-- Конструктор игровых профилей и пресетов.
+- Конструктор игровых профилей, ROI zones, templates и пресетов.
+- Vision Inspector: overlay с ROI, candidate boxes, confidence, latency,
+  provider source и действиями save template / create ROI / export label.
+- LLM Autopilot Builder: по промпту создает GoalSpec, safety policy,
+  screen graph, profile, ROI zones, templates, scenario, replay/live reports,
+  patch data и version history.
 - MCP bridge, чтобы другая нейронка могла читать состояние, запускать тесты,
   управлять телефоном, использовать CV и создавать профили/пресеты.
 
@@ -1035,6 +1426,9 @@ Dashboard и MCP запускают покупки только в режиме 
 Реальные `Buy`, `Pay`, `Confirm`, подписки, пароль, биометрия и финальное
 подтверждение оплаты заблокированы guard-правилами. Google phone verification
 остается ручной и под контролем пользователя.
+
+Fast gameplay рассчитан на локальные QA/single-player сценарии. Проект не
+реализует PvP automation, stealth, anti-cheat bypass или подтверждение оплаты.
 
 Редактор файлов в dashboard не редактирует код сервера. Разрешены только
 безопасные data-директории:
@@ -1048,6 +1442,37 @@ dashboard/prompts
 
 `config.py`, `main.py`, `dashboard/server.py`, dashboard JS/CSS/HTML, секреты,
 логи, отчеты, кеши, virtualenv и `legacy/` заблокированы в web-редакторе.
+
+### Local-First Perception
+
+Основной pipeline:
+
+```text
+FrameSource.latest_frame()
+  -> ScreenStabilityDetector
+  -> ROISelector(profile, state)
+  -> ElementFinder(goal, roi)
+  -> Providers: UIAutomator, Template, Detector, LLM fallback
+  -> FusionEngine.rank_candidates()
+  -> PolicyGuard / scenario logic
+  -> InputScheduler.execute()
+  -> Metrics + Trace + Dashboard overlay
+```
+
+`PERCEPTION_MODE=shadow` нужен для безопасного rollout: локальные providers
+считаются и логируются, но не управляют действием. `local_first` сначала
+использует UIAutomator/templates/detector/cache, а Vision вызывает только при
+низкой confidence. `local_only` подходит для fast gameplay и replay tests.
+
+`FRAME_SOURCE=adb` использует текущий ADB screenshot путь, `FRAME_SOURCE=replay`
+читает сохраненные PNG frames. `FRAME_SOURCE=scrcpy` использует host `scrcpy` и
+`ffmpeg` для получения кадра, а `FRAME_SOURCE=minicap` читает minicap socket
+stream, если minicap установлен на устройстве.
+
+Подробный ledger по внедрению хранится в
+[docs/perception_roadmap.md](docs/perception_roadmap.md): там перечислены
+готовые PR-блоки, измененные файлы, тесты, coverage gate и реальный smoke на
+Subway Surfers.
 
 ### Быстрый Старт
 
@@ -1232,6 +1657,8 @@ guarded runs.
 | `MCP` | Команда MCP server, client config, список tools |
 | `Manual` | Live screen, tap, swipe, key, text, запись и replay действий |
 | `CV стенд` | Цель/промпт для CV, планирование одного шага или короткий guarded CV run |
+| `Vision Inspector` | Screenshot overlay с ROI, boxes, confidence, latency и editing actions |
+| `Builder` | Prompt-to-autopilot builder: GoalSpec, safety, bundle save, replay/live validation, patches и версии |
 | `Project` / `Data Files` | Защищенный редактор только safe data files |
 | `Profiles` | Создание, применение и удаление custom game profiles |
 | `Guide` | Подробные объяснения RU/EN |
@@ -1248,6 +1675,11 @@ guarded runs.
 - В CV Test Bench можно написать цель/промпт, спланировать один CV шаг через
   `POST /api/cv/plan` или запустить короткую guarded CV-цель через
   `POST /api/cv/run`.
+- Vision Inspector показывает ROI/candidates поверх screenshot и может
+  сохранить выбранную область как template, добавить ROI в профиль или
+  экспортировать label JSON.
+- Builder принимает промпт, package/device, replay frames и текущие Vision
+  key/models, затем сохраняет bundle в `autopilots/<id>/`.
 
 ### Скриншоты Dashboard
 
@@ -1282,6 +1714,29 @@ tools, доступных внешним AI-клиентам.
 `CV стенд` — тестовая зона для промптов. Можно написать цель, получить один
 планируемый CV action или запустить короткую guarded CV loop на текущем экране.
 
+`Vision Inspector` показывает boxes, provider source, confidence, ROI zones,
+выбранное действие и latency metrics. Из него можно сохранить crop как
+template, создать ROI zone в custom profile или экспортировать label.
+После CV-запуска нажми `Обновить инспектор`. Оранжевый цвет — активная ROI,
+синий — candidates от providers, зеленый — выбранный элемент, фиолетовый —
+ручная область, которую ты чертишь мышью прямо по screenshot. `Сохранить
+шаблон` и `Создать ROI` сначала используют фиолетовую ручную
+рамку; если её нет, берут зеленый selected element.
+Блок `Что сохранено` показывает точный путь файла и JSON-ответ сохранения. Для
+ROI включается кнопка `Открыть profile JSON`: она прыгает в Project editor и
+открывает `dashboard/profiles/<profile>.json`, где можно посмотреть или
+изменить зоны. Для template показывается путь crop-файла в `assets/templates/...`
+и путь registry.
+В Inspector теперь есть блок `Templates`: нажми `Обновить templates`, чтобы
+увидеть текущий registry, PNG-файлы и выбрать сохраненный template обратно в
+форму. При сохранении template в `assets/templates/registry.json` пишутся
+`template id`, `namespace`, имя ROI и threshold.
+
+![Vision Inspector](docs/screenshots/11-vision-inspector.png)
+
+На screenshot выше видно сам Inspector: overlay, controls для template/ROI и
+текущую библиотеку templates.
+
 ![Data-файлы dashboard](docs/screenshots/06-data-files.png)
 
 `Data Files` редактирует только безопасные data files: presets, profiles,
@@ -1291,17 +1746,67 @@ recordings и prompt notes. Код сервера и dashboard source files зд
 ![Игровые профили](docs/screenshots/07-profiles.png)
 
 `Profiles` создает профили под новые игры: package, Play Store query, CV hints,
-blocker words, gameplay strategy, notes и лимиты шагов.
+blocker words, gameplay strategy, normalized `screen_zones`, notes и лимиты
+шагов.
 
 ![Гайд](docs/screenshots/08-guide.png)
 
-`Guide` объясняет constructor, CV autopilot, recordings, MCP, тесты и safety
-rules.
+`Guide` объясняет constructor, profiles, presets, CV autopilot, recordings, MCP,
+Vision Inspector, Autopilot Builder, тесты и safety rules.
 
 ![Отчеты и логи](docs/screenshots/09-reports-logs.png)
 
 `Reports` и `Logs` показывают timeline последнего run, вывод проверок и tail
 активного процесса автоматизации.
+
+### LLM Autopilot Builder
+
+`Builder` превращает промпт в сохраненный local-first autopilot bundle. LLM
+используется как builder/screen analyst, а не как realtime player. Runtime
+исполняет готовый сценарий через локальные frame source, stability, ROI,
+templates/UIAutomator/local providers, `PolicyGuard` и `InputScheduler`.
+
+На вход подаются:
+
+- цель/промпт;
+- режим `create`, `improve`, `repair`, `validate` или `shadow`;
+- optional package, выбранный ADB serial, replay frame paths и live validation;
+- OpenRouter/Vision key и model list из dashboard.
+
+На выходе создается:
+
+```text
+autopilots/<autopilot_id>/
+  autopilot.json
+  profile.json
+  scenario.json
+  screen_graph.json
+  safety_policy.json
+  templates/
+  replays/frames/
+  reports/build_report.json
+  patches/
+  version_history.json
+```
+
+Код находится в `core/autobuilder/`: GoalSpec/parser, schemas, budgets,
+redaction, SafetyPolicy/PolicyGuard, AppManager, Explorer/ScreenGraph,
+ScreenAnalyst, Profile/ROI/Template/Scenario generators, bundle/replay/live
+validation, self-healing, review queue, versioning и eval suite. Статус
+реализации ведется в `docs/autopilot_builder_implementation_status.md`.
+
+![Autopilot Builder](docs/screenshots/12-autopilot-builder.png)
+
+Builder-панель — это операторский вход в prompt-to-autopilot flow: prompt,
+режим, package, replay/live options, список bundles и сырой build output.
+
+### Документация И Гайд Для Разработки
+
+- [Development Guide](docs/development_guide.md)
+- [Dashboard Guide](docs/dashboard_guide.md)
+- [Perception Roadmap](docs/perception_roadmap.md)
+- [Autopilot Builder Plan](docs/autopilot_builder_plan.md)
+- [Autopilot Builder Implementation Status](docs/autopilot_builder_implementation_status.md)
 
 ### MCP
 
@@ -1340,7 +1845,10 @@ python3 -m dashboard.mcp_server
 | Recordings | `list_recordings`, `read_recording`, `save_recording`, `replay_recording` |
 | Конструктор | `list_game_profiles`, `save_game_profile`, `delete_game_profile`, `list_presets`, `save_preset`, `delete_preset` |
 | CV | `cv_plan_next_action`, `cv_run_goal` |
+| Vision Inspector | `vision_inspector_state`, `list_vision_templates`, `save_vision_template`, `create_vision_roi`, `export_vision_label` |
+| Autopilot Builder | `autopilot_builder_state`, `build_autopilot` |
 | Android | `adb_devices`, `device_screenshot`, `device_tap`, `device_swipe`, `device_key`, `device_text` |
+| Manual checkpoint | `manual_continue` |
 
 Как использовать умную модель через MCP:
 
@@ -1349,9 +1857,11 @@ python3 -m dashboard.mcp_server
    создай профиль, подбери prompts, проверь устройство, прогони checks, посмотри
    screenshots, протестируй CV и остановись на purchase preview”.
 3. Модель читает `dashboard_state`, создает `save_game_profile`, сохраняет
-   `save_preset`, проверяет экран через `device_screenshot`, тестирует CV через
-   `cv_plan_next_action` / `cv_run_goal`, запускает `run_checks` и смотрит
-   `latest_report`.
+   `save_preset`, проверяет экран через `device_screenshot`, читает
+   `vision_inspector_state`, сохраняет `save_vision_template` /
+   `create_vision_roi`, при необходимости собирает bundle через
+   `build_autopilot`, тестирует CV через `cv_plan_next_action` / `cv_run_goal`,
+   запускает `run_checks` и смотрит `latest_report`.
 4. Для другой игры она повторяет тот же цикл: новый profile, новый preset,
    новые hints/prompts/recordings.
 
@@ -1359,13 +1869,28 @@ MCP может редактировать только safe data files, profiles
 prompt notes. Код сервера, секреты и реальные подтверждения оплаты заблокированы
 guard-правилами.
 
+### Режимы Автоматизации
+
+| Режим | Для чего |
+| --- | --- |
+| `cv` | Guarded menu/tutorial flow; порядок local-first или Vision fallback задает `PERCEPTION_MODE` |
+| `manual` | Ручной этап с live screen и manual checkpoint |
+| `recorded` | Replay сохраненных taps/swipes/text/keys |
+| `deterministic` | Жестко заданный deterministic flow, где он есть |
+| `fast` | Realtime gameplay helper через `RunnerPlugin`, cooldowns и без Vision calls |
+| `auto` | Выбор helper по profile/config |
+| `off` | Пропустить этап |
+
 ### Тесты
 
 Текущий локальный статус:
 
 ```text
-163 passed
+348 passed
+Local-first module coverage gate: 100.00%
+Autopilot Builder coverage gate: 100.00%
 Deterministic constructor/MCP/CV coverage gate: 100.00%
+Real Subway Surfers smoke: passed on device 47d33e1c
 ```
 
 Полный прогон:
@@ -1395,6 +1920,93 @@ python3 -m pytest \
   --cov=core.cv_prompt_templates \
   --cov=dashboard.cv_bridge \
   --cov=core.game_profiles \
+  --cov-report=term-missing \
+  --cov-fail-under=100 \
+  -q
+```
+
+100% coverage gate для Autopilot Builder:
+
+```bash
+python3 -m pytest \
+  tests/test_goal_spec.py \
+  tests/test_task_parser.py \
+  tests/test_autobuilder_budgets.py \
+  tests/test_autobuilder_schemas.py \
+  tests/test_autobuilder_safety_policy.py \
+  tests/test_autobuilder_redaction.py \
+  tests/test_app_manager.py \
+  tests/test_screen_graph.py \
+  tests/test_build_context.py \
+  tests/test_explorer.py \
+  tests/test_screen_analyst.py \
+  tests/test_profile_generator.py \
+  tests/test_roi_generator.py \
+  tests/test_scenario_generator.py \
+  tests/test_template_miner.py \
+  tests/test_artifact_store.py \
+  tests/test_autopilot_bundle.py \
+  tests/test_replay_test_runner.py \
+  tests/test_live_validation.py \
+  tests/test_self_healing.py \
+  tests/test_patch_review.py \
+  tests/test_autopilot_versioning.py \
+  tests/test_autopilot_eval_suite.py \
+  tests/test_autopilot_builder_e2e.py \
+  tests/test_dashboard_builder_api.py \
+  tests/test_autobuilder_coverage_edges.py \
+  --cov=core.autobuilder \
+  --cov=dashboard.api_builder \
+  --cov-report=term-missing \
+  --cov-fail-under=100
+```
+
+100% coverage gate для local-first perception/gameplay/inspector слоя:
+
+```bash
+python3 -m pytest \
+  tests/test_config_feature_flags.py \
+  tests/test_metrics.py \
+  tests/test_input_scheduler.py \
+  tests/test_frame_source_replay.py \
+  tests/test_default_perception_factory.py \
+  tests/test_roi_selector.py \
+  tests/test_screen_stability.py \
+  tests/test_element_fusion.py \
+  tests/test_element_finder_contract.py \
+  tests/test_template_provider.py \
+  tests/test_uiautomator_provider.py \
+  tests/test_screen_state_cache.py \
+  tests/test_llm_provider.py \
+  tests/test_dashboard_vision_inspector.py \
+  tests/test_dashboard_vision_editing.py \
+  tests/test_runner_plugin.py \
+  tests/test_fast_runner_gameplay.py \
+  tests/test_match3_gameplay.py \
+  tests/test_match3_scoring.py \
+  tests/test_detector_provider.py \
+  tests/test_cv_autopilot.py \
+  --cov=core.metrics \
+  --cov=core.input_scheduler \
+  --cov=core.frame_source \
+  --cov=core.perception.defaults \
+  --cov=core.perception.roi \
+  --cov=core.perception.screen_stability \
+  --cov=core.perception.element \
+  --cov=core.perception.fusion \
+  --cov=core.perception.finder \
+  --cov=core.perception.template_registry \
+  --cov=core.perception.providers.template_provider \
+  --cov=core.perception.providers.uiautomator_provider \
+  --cov=core.perception.state_cache \
+  --cov=core.perception.providers.llm_provider \
+  --cov=dashboard.api_vision \
+  --cov=core.gameplay.base_plugin \
+  --cov=core.gameplay.runner_plugin \
+  --cov=core.perception.providers.detector_provider \
+  --cov=scenarios.fast_runner_gameplay \
+  --cov=scenarios.match3_gameplay \
+  --cov=core.cv_autopilot \
   --cov-report=term-missing \
   --cov-fail-under=100 \
   -q
@@ -1441,20 +2053,22 @@ python3 -m pytest \
   -q
 ```
 
-4. Проверь секреты:
+4. Запусти local-first coverage gate 100% из раздела [Тесты](#тесты).
+
+5. Проверь секреты:
 
 ```bash
 bash scripts/secret_scan.sh
 ```
 
-5. Проверь Docker:
+6. Проверь Docker:
 
 ```bash
 docker compose config
 bash scripts/docker_check.sh
 ```
 
-6. Сделай commit и tag:
+7. Сделай commit и tag:
 
 ```bash
 git add .
@@ -1462,7 +2076,7 @@ git commit -m "Release beta 0.1.15c"
 git tag -a beta-0.1.15c -m "Beta 0.1.15c"
 ```
 
-7. Push только после настройки remote:
+8. Push только после настройки remote:
 
 ```bash
 git remote add origin git@github.com:<owner>/<repo>.git
@@ -1484,7 +2098,16 @@ git push origin beta-0.1.15c
 | Переменная | Назначение |
 | --- | --- |
 | `OPENROUTER_API_KEY` | Vision model key |
-| `CV_MODELS` | Список Vision models через запятую |
+| `CV_MODELS` | Список Vision models через запятую; по умолчанию `xiaomi/mimo-v2.5` |
+| `PERCEPTION_MODE` | `llm_first`, `shadow`, `local_first`, `local_only` |
+| `FRAME_SOURCE` | `adb`, `replay`, `scrcpy`, `minicap`; `scrcpy` требует host `scrcpy` + `ffmpeg`, `minicap` требует minicap на устройстве |
+| `ACTION_MODE` | `menu` для безопасных пауз или `fast` для realtime gameplay |
+| `ENABLE_TEMPLATE_PROVIDER` | Включить template matching |
+| `ENABLE_UIAUTOMATOR_PROVIDER` | Включить Android text/UI candidates |
+| `ENABLE_LLM_FALLBACK` | Разрешить Vision fallback вне local-only loops |
+| `ENABLE_DETECTOR_PROVIDER` | Включить optional detector provider |
+| `DETECTOR_MODEL_PATH` | Optional ONNX/local detector model path |
+| `DETECTOR_CONFIDENCE_THRESHOLD` | Минимальная confidence detector provider |
 | `LOCAL_DEVICE` | ADB serial или `auto` |
 | `GAME_PROFILE` | ID игрового профиля |
 | `RUN_STAGES` | Этапы запуска через запятую |
